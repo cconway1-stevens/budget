@@ -1,0 +1,1645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Financial Analytics Pro — Budget & Cash Flow Dashboard</title>
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='grad' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%233b82f6;stop-opacity:1' /%3E%3Cstop offset='100%25' style='stop-color:%232563eb;stop-opacity:1' /%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100' height='100' rx='20' fill='url(%23grad)'/%3E%3Cpath d='M30 45 L45 60 L70 35' stroke='white' stroke-width='6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M25 70 L35 65 L45 72 L55 68 L65 75 L75 70' stroke='white' stroke-width='4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    html, body { 
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0a0e27;
+      color: #e2e8f0;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #1a1f3a; }
+    ::-webkit-scrollbar-thumb { background: #2d3653; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #3d4663; }
+
+    /* Glassmorphism Cards */
+    .glass-card {
+      background: linear-gradient(135deg, rgba(30, 41, 82, 0.8) 0%, rgba(20, 30, 60, 0.6) 100%);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(100, 116, 180, 0.15);
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .glass-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+      border-color: rgba(100, 116, 180, 0.25);
+    }
+
+    /* KPI Cards */
+    .kpi-card {
+      background: linear-gradient(135deg, rgba(30, 41, 82, 0.9) 0%, rgba(20, 30, 60, 0.8) 100%);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(100, 116, 180, 0.2);
+      border-radius: 20px;
+      padding: 24px;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.3s ease;
+    }
+
+    .kpi-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, var(--accent-color), transparent);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .kpi-card:hover::before { opacity: 1; }
+    .kpi-card:hover { transform: translateY(-4px); box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5); }
+
+    /* Buttons */
+    .btn {
+      @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200;
+      border: none;
+      cursor: pointer;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+      color: white;
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+    }
+    .btn-success {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: white;
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    }
+    .btn-ghost {
+      background: rgba(71, 85, 105, 0.3);
+      color: #e2e8f0;
+      border: 1px solid rgba(100, 116, 180, 0.2);
+    }
+    .btn-ghost:hover {
+      background: rgba(71, 85, 105, 0.5);
+      border-color: rgba(100, 116, 180, 0.3);
+    }
+
+    /* Pills */
+    .pill {
+      @apply inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all cursor-pointer;
+    }
+    .pill-active {
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+      color: white;
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+    }
+    .pill-soft {
+      background: rgba(71, 85, 105, 0.3);
+      color: #cbd5e1;
+      border: 1px solid rgba(100, 116, 180, 0.2);
+    }
+    .pill-soft:hover {
+      background: rgba(71, 85, 105, 0.5);
+      border-color: rgba(100, 116, 180, 0.3);
+    }
+
+    /* Badges */
+    .badge {
+      @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold;
+    }
+    .badge-income {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .badge-expense {
+      background: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    /* Category Badge */
+    .category-badge {
+      @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold;
+      background: rgba(100, 116, 180, 0.2);
+      color: #cbd5e1;
+      border: 1px solid rgba(100, 116, 180, 0.4);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .category-badge:hover {
+      background: rgba(100, 116, 180, 0.3);
+      border-color: rgba(100, 116, 180, 0.6);
+    }
+    .category-badge.selected {
+      background: rgba(139, 92, 246, 0.3);
+      color: #c084fc;
+      border-color: rgba(139, 92, 246, 0.6);
+    }
+
+    /* Trend Indicators */
+    .trend-up { color: #10b981; }
+    .trend-down { color: #ef4444; }
+    .trend-badge {
+      @apply inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-semibold;
+    }
+    .trend-badge.up {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+    }
+    .trend-badge.down {
+      background: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+    }
+
+    /* Table Styles */
+    .data-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+    .data-table thead {
+      background: rgba(30, 41, 82, 0.6);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .data-table thead th {
+      padding: 16px;
+      text-align: left;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #94a3b8;
+      border-bottom: 1px solid rgba(100, 116, 180, 0.2);
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.2s ease;
+    }
+    .data-table thead th:hover {
+      background: rgba(100, 116, 180, 0.1);
+      color: #cbd5e1;
+    }
+    .data-table thead th.sortable {
+      position: relative;
+    }
+    .data-table thead th.sorted {
+      color: #3b82f6;
+    }
+    .sort-indicator {
+      display: inline-block;
+      margin-left: 6px;
+      font-size: 10px;
+      opacity: 0.6;
+    }
+    .data-table tbody tr {
+      border-bottom: 1px solid rgba(100, 116, 180, 0.1);
+      transition: all 0.2s ease;
+    }
+    .data-table tbody tr:hover {
+      background: rgba(59, 130, 246, 0.05);
+    }
+    .data-table tbody td {
+      padding: 16px;
+      font-size: 14px;
+      color: #e2e8f0;
+    }
+
+    /* Input Styles */
+    input, select, textarea {
+      background: rgba(30, 41, 82, 0.6);
+      border: 1px solid rgba(100, 116, 180, 0.3);
+      color: #e2e8f0;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 14px;
+      transition: all 0.2s ease;
+      outline: none;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+      background: rgba(30, 41, 82, 0.8);
+    }
+    input::placeholder {
+      color: #64748b;
+    }
+
+    /* Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(4px);
+    }
+    .modal.active {
+      display: flex;
+    }
+    .modal-content {
+      background: linear-gradient(135deg, rgba(30, 41, 82, 0.95) 0%, rgba(20, 30, 60, 0.8) 100%);
+      border: 1px solid rgba(100, 116, 180, 0.3);
+      border-radius: 20px;
+      padding: 32px;
+      max-width: 500px;
+      width: 90%;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+      animation: slideIn 0.3s ease-out;
+    }
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-50px) scale(0.95);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    /* Animations */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes slideInLeft {
+      from { transform: translateX(-100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    .fade-in { animation: fadeIn 0.5s ease-out; }
+    .slide-in { animation: slideInLeft 0.4s ease-out; }
+
+    /* Chart Container */
+    .chart-container {
+      position: relative;
+      height: 300px;
+      padding: 20px;
+    }
+
+    /* Navigation */
+    .nav-link {
+      @apply px-4 py-2.5 rounded-xl text-sm font-medium transition-all;
+      color: #cbd5e1;
+    }
+    .nav-link.active {
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+      color: white;
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
+    .nav-link:hover:not(.active) {
+      background: rgba(71, 85, 105, 0.3);
+      color: #e2e8f0;
+    }
+
+    /* Variable Chip */
+    .variable-chip {
+      @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold;
+      background: rgba(168, 85, 247, 0.15);
+      color: #c084fc;
+      border: 1px solid rgba(168, 85, 247, 0.3);
+    }
+
+    /* Stat Card */
+    .stat-mini {
+      @apply flex items-center justify-between p-4 rounded-xl;
+      background: rgba(30, 41, 82, 0.4);
+      border: 1px solid rgba(100, 116, 180, 0.15);
+    }
+
+    /* Number formatting */
+    .num { -moz-appearance: textfield; }
+    .num::-webkit-outer-spin-button,
+    .num::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+    /* Quick add row highlight */
+    .quick-add-row {
+      background: rgba(59, 130, 246, 0.05);
+      border-top: 2px dashed rgba(59, 130, 246, 0.3);
+    }
+
+    /* Sparkline */
+    .sparkline {
+      width: 80px;
+      height: 30px;
+    }
+
+    /* Frequency Value Cell */
+    .freq-value {
+      font-size: 13px;
+      font-weight: 600;
+      text-align: right;
+    }
+    .freq-value.highlight {
+      color: #3b82f6;
+      font-weight: 700;
+    }
+
+    /* Category Management */
+    .category-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      max-height: 300px;
+      overflow-y: auto;
+      padding: 4px;
+    }
+    .category-item {
+      @apply inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm;
+      background: rgba(100, 116, 180, 0.2);
+      border: 1px solid rgba(100, 116, 180, 0.4);
+      transition: all 0.2s ease;
+    }
+    .category-item:hover {
+      background: rgba(100, 116, 180, 0.3);
+    }
+    .category-item .remove-cat {
+      cursor: pointer;
+      opacity: 0.6;
+      transition: opacity 0.2s;
+    }
+    .category-item .remove-cat:hover {
+      opacity: 1;
+      color: #ef4444;
+    }
+  </style>
+</head>
+<body class="p-6">
+  <div class="max-w-[1600px] mx-auto">
+    <!-- Header -->
+    <header class="glass-card p-6 mb-8 fade-in">
+      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+        <div class="flex items-center gap-4">
+          <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
+            <i data-lucide="activity" class="w-7 h-7 text-white" stroke-width="2.5"></i>
+          </div>
+          <div>
+            <h1 class="text-3xl font-bold text-white mb-1">Financial Analytics Pro</h1>
+            <p class="text-sm text-slate-400">Advanced budget tracking & cash flow insights</p>
+          </div>
+        </div>
+        
+        <nav class="flex flex-wrap items-center gap-3">
+          <a href="#/dashboard" id="navDashboard" class="nav-link active flex items-center gap-2">
+            <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+            Dashboard
+          </a>
+          <a href="#/entry" id="navEntry" class="nav-link flex items-center gap-2">
+            <i data-lucide="table-2" class="w-4 h-4"></i>
+            Data Entry
+          </a>
+          <button id="btnCategories" class="nav-link flex items-center gap-2" title="Manage Categories">
+            <i data-lucide="tags" class="w-4 h-4"></i>
+            Categories
+          </button>
+          <div class="w-px h-8 bg-slate-700"></div>
+          <button id="btnExport" class="btn btn-ghost" title="Export Data">
+            <i data-lucide="download" class="w-4 h-4"></i>
+          </button>
+          <label class="btn btn-ghost cursor-pointer" title="Import Data">
+            <i data-lucide="upload" class="w-4 h-4"></i>
+            <input id="fileImport" type="file" accept="application/json" class="hidden" />
+          </label>
+        </nav>
+      </div>
+    </header>
+
+    <!-- Category Management Modal -->
+    <div id="categoryModal" class="modal">
+      <div class="modal-content">
+        <div class="flex items-center justify-between mb-6">
+          <h2 class="text-2xl font-bold text-white flex items-center gap-3">
+            <i data-lucide="tags" class="w-6 h-6"></i>
+            Manage Categories
+          </h2>
+          <button id="closeCategoryModal" class="text-slate-400 hover:text-white transition-colors">
+            <i data-lucide="x" class="w-6 h-6"></i>
+          </button>
+        </div>
+        
+        <div class="mb-6">
+          <label class="block text-sm font-semibold text-white mb-3">Add New Category</label>
+          <div class="flex gap-2">
+            <input type="text" id="newCategoryInput" placeholder="Enter category name..." 
+                   class="flex-1" />
+            <button id="addCategoryBtn" class="btn btn-primary">
+              <i data-lucide="plus" class="w-4 h-4"></i>
+              Add
+            </button>
+          </div>
+        </div>
+
+        <div class="mb-6">
+          <label class="block text-sm font-semibold text-white mb-3">Current Categories</label>
+          <div class="category-container" id="categoryList">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+
+        <div class="flex gap-3">
+          <button id="resetCategoriesBtn" class="btn btn-ghost text-orange-400 flex-1">
+            <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+            Reset to Default
+          </button>
+          <button id="confirmCategoryBtn" class="btn btn-success flex-1">
+            <i data-lucide="check" class="w-4 h-4"></i>
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== DASHBOARD PAGE ===== -->
+    <section id="pageDashboard" class="space-y-6">
+      <!-- Period Selector -->
+      <div class="glass-card p-5 flex flex-wrap items-center justify-between gap-4 fade-in" style="animation-delay: 0.1s">
+        <div id="viewSwitcher" class="flex gap-2">
+          <button data-view="daily" class="pill pill-soft">
+            <i data-lucide="calendar" class="w-4 h-4"></i>
+            Daily
+          </button>
+          <button data-view="weekly" class="pill pill-soft">
+            <i data-lucide="calendar-range" class="w-4 h-4"></i>
+            Weekly
+          </button>
+          <button data-view="monthly" class="pill pill-active">
+            <i data-lucide="calendar-check" class="w-4 h-4"></i>
+            Monthly
+          </button>
+          <button data-view="yearly" class="pill pill-soft">
+            <i data-lucide="calendar-clock" class="w-4 h-4"></i>
+            Yearly
+          </button>
+        </div>
+        <div class="flex items-center gap-3 text-sm">
+          <i data-lucide="eye" class="w-4 h-4 text-slate-400"></i>
+          <span class="text-slate-400">Viewing:</span>
+          <span id="viewLabel" class="font-bold text-blue-400">Monthly</span>
+          <span class="text-slate-600">Period</span>
+        </div>
+      </div>
+
+      <!-- KPI Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+        <!-- Total Income -->
+        <div class="kpi-card fade-in" style="--accent-color: #10b981; animation-delay: 0.15s">
+          <div class="flex items-start justify-between mb-4">
+            <div class="flex-1">
+              <div class="flex items-center gap-2 mb-2">
+                <div class="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center">
+                  <i data-lucide="trending-up" class="w-5 h-5 text-emerald-400"></i>
+                </div>
+                <span class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Total Income</span>
+              </div>
+              <div class="flex items-end gap-3">
+                <h3 id="kpiIncome" class="text-3xl font-bold text-white">$0.00</h3>
+                <span id="incomeChange" class="trend-badge up mb-1">
+                  <i data-lucide="arrow-up" class="w-3 h-3"></i>
+                  0%
+                </span>
+              </div>
+            </div>
+            <canvas id="sparkIncome" class="sparkline"></canvas>
+          </div>
+          <div class="text-xs text-slate-400 flex items-center gap-2">
+            <i data-lucide="info" class="w-3 h-3"></i>
+            <span>All revenue streams combined</span>
+          </div>
+        </div>
+
+        <!-- Total Expenses -->
+        <div class="kpi-card fade-in" style="--accent-color: #ef4444; animation-delay: 0.2s">
+          <div class="flex items-start justify-between mb-4">
+            <div class="flex-1">
+              <div class="flex items-center gap-2 mb-2">
+                <div class="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center">
+                  <i data-lucide="trending-down" class="w-5 h-5 text-red-400"></i>
+                </div>
+                <span class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Total Expenses</span>
+              </div>
+              <div class="flex items-end gap-3">
+                <h3 id="kpiExpenses" class="text-3xl font-bold text-white">$0.00</h3>
+                <span id="expenseChange" class="trend-badge down mb-1">
+                  <i data-lucide="arrow-down" class="w-3 h-3"></i>
+                  0%
+                </span>
+              </div>
+            </div>
+            <canvas id="sparkExpense" class="sparkline"></canvas>
+          </div>
+          <div class="text-xs text-slate-400 flex items-center gap-2">
+            <i data-lucide="info" class="w-3 h-3"></i>
+            <span>All outgoing payments</span>
+          </div>
+        </div>
+
+        <!-- Net Cash Flow -->
+        <div class="kpi-card fade-in" style="--accent-color: #3b82f6; animation-delay: 0.25s">
+          <div class="flex items-start justify-between mb-4">
+            <div class="flex-1">
+              <div class="flex items-center gap-2 mb-2">
+                <div class="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                  <i data-lucide="arrow-right-left" class="w-5 h-5 text-blue-400"></i>
+                </div>
+                <span class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Net Cash Flow</span>
+              </div>
+              <div class="flex items-end gap-3">
+                <h3 id="kpiNet" class="text-3xl font-bold text-white">$0.00</h3>
+                <span id="netChange" class="trend-badge up mb-1">
+                  <i data-lucide="arrow-up" class="w-3 h-3"></i>
+                  0%
+                </span>
+              </div>
+            </div>
+            <canvas id="sparkNet" class="sparkline"></canvas>
+          </div>
+          <div class="text-xs text-slate-400 flex items-center gap-2">
+            <i data-lucide="info" class="w-3 h-3"></i>
+            <span>Income minus expenses</span>
+          </div>
+        </div>
+
+        <!-- Savings Rate -->
+        <div class="kpi-card fade-in" style="--accent-color: #8b5cf6; animation-delay: 0.3s">
+          <div class="flex items-start justify-between mb-4">
+            <div class="flex-1">
+              <div class="flex items-center gap-2 mb-2">
+                <div class="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
+                  <i data-lucide="percent" class="w-5 h-5 text-purple-400"></i>
+                </div>
+                <span class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Savings Rate</span>
+              </div>
+              <div class="flex items-end gap-3">
+                <h3 id="kpiMargin" class="text-3xl font-bold text-white">0%</h3>
+              </div>
+            </div>
+            <div class="flex items-center justify-center w-16 h-16">
+              <svg class="transform -rotate-90 w-16 h-16">
+                <circle cx="32" cy="32" r="28" stroke="rgba(139, 92, 246, 0.2)" stroke-width="4" fill="none"/>
+                <circle id="progressCircle" cx="32" cy="32" r="28" stroke="#8b5cf6" stroke-width="4" fill="none"
+                        stroke-dasharray="175.93" stroke-dashoffset="175.93" stroke-linecap="round"/>
+              </svg>
+            </div>
+          </div>
+          <div class="text-xs text-slate-400 flex items-center gap-2">
+            <i data-lucide="info" class="w-3 h-3"></i>
+            <span>Percentage of income saved</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts Row -->
+      <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <!-- Income vs Expenses Trend -->
+        <div class="glass-card p-6 fade-in" style="animation-delay: 0.35s">
+          <div class="flex items-center justify-between mb-6">
+            <div>
+              <h3 class="text-lg font-bold text-white mb-1">Cash Flow Trend</h3>
+              <p class="text-sm text-slate-400">Income vs Expenses over time</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="badge-income"><i data-lucide="arrow-up" class="w-3 h-3"></i> Income</span>
+              <span class="badge-expense"><i data-lucide="arrow-down" class="w-3 h-3"></i> Expenses</span>
+            </div>
+          </div>
+          <div class="chart-container">
+            <canvas id="chartTrend"></canvas>
+          </div>
+        </div>
+
+        <!-- Expense Breakdown -->
+        <div class="glass-card p-6 fade-in" style="animation-delay: 0.4s">
+          <div class="flex items-center justify-between mb-6">
+            <div>
+              <h3 class="text-lg font-bold text-white mb-1">Expense Categories</h3>
+              <p class="text-sm text-slate-400">Where your money goes</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <i data-lucide="pie-chart" class="w-4 h-4 text-slate-400"></i>
+            </div>
+          </div>
+          <div class="chart-container">
+            <canvas id="chartBreakdown"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Analytics Grid -->
+      <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        <!-- Top Expenses -->
+        <div class="glass-card p-6 fade-in" style="animation-delay: 0.45s">
+          <div class="flex items-center justify-between mb-6">
+            <h3 class="text-lg font-bold text-white">Top Expenses</h3>
+            <i data-lucide="arrow-down-wide-narrow" class="w-5 h-5 text-slate-400"></i>
+          </div>
+          <div id="topExpenses" class="space-y-3">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+
+        <!-- Budget Summary -->
+        <div class="glass-card p-6 fade-in" style="animation-delay: 0.5s">
+          <div class="flex items-center justify-between mb-6">
+            <h3 class="text-lg font-bold text-white">Quick Stats</h3>
+            <i data-lucide="zap" class="w-5 h-5 text-slate-400"></i>
+          </div>
+          <div class="space-y-4">
+            <div class="stat-mini">
+              <div class="flex items-center gap-3">
+                <i data-lucide="wallet" class="w-5 h-5 text-blue-400"></i>
+                <div>
+                  <p class="text-xs text-slate-400">Total Entries</p>
+                  <p id="statEntries" class="text-lg font-bold text-white">0</p>
+                </div>
+              </div>
+            </div>
+            <div class="stat-mini">
+              <div class="flex items-center gap-3">
+                <i data-lucide="repeat" class="w-5 h-5 text-purple-400"></i>
+                <div>
+                  <p class="text-xs text-slate-400">Recurring Items</p>
+                  <p id="statRecurring" class="text-lg font-bold text-white">0</p>
+                </div>
+              </div>
+            </div>
+            <div class="stat-mini">
+              <div class="flex items-center gap-3">
+                <i data-lucide="target" class="w-5 h-5 text-emerald-400"></i>
+                <div>
+                  <p class="text-xs text-slate-400">Avg Daily Expense</p>
+                  <p id="statAvgDaily" class="text-lg font-bold text-white">$0.00</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Financial Health Score -->
+        <div class="glass-card p-6 fade-in" style="animation-delay: 0.55s">
+          <div class="flex items-center justify-between mb-6">
+            <h3 class="text-lg font-bold text-white">Financial Health</h3>
+            <i data-lucide="heart-pulse" class="w-5 h-5 text-slate-400"></i>
+          </div>
+          <div class="flex flex-col items-center justify-center py-6">
+            <div class="relative w-40 h-40 mb-4">
+              <svg class="transform -rotate-90 w-40 h-40">
+                <circle cx="80" cy="80" r="70" stroke="rgba(59, 130, 246, 0.2)" stroke-width="12" fill="none"/>
+                <circle id="healthCircle" cx="80" cy="80" r="70" stroke="#3b82f6" stroke-width="12" fill="none"
+                        stroke-dasharray="440" stroke-dashoffset="440" stroke-linecap="round"/>
+              </svg>
+              <div class="absolute inset-0 flex items-center justify-center flex-col">
+                <span id="healthScore" class="text-4xl font-bold text-white">0</span>
+                <span class="text-sm text-slate-400">Score</span>
+              </div>
+            </div>
+            <p id="healthStatus" class="text-center text-sm text-slate-400">Analyzing your finances...</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== DATA ENTRY PAGE ===== -->
+    <section id="pageEntry" class="hidden space-y-6">
+      <!-- Info Banner -->
+      <div class="glass-card p-5 fade-in">
+        <div class="flex items-start gap-4">
+          <div class="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center flex-shrink-0">
+            <i data-lucide="lightbulb" class="w-5 h-5 text-blue-400"></i>
+          </div>
+          <div class="flex-1">
+            <h4 class="text-sm font-bold text-white mb-2">Smart Variable System with Categories</h4>
+            <ul class="space-y-1 text-sm text-slate-400">
+              <li class="flex items-start gap-2">
+                <i data-lucide="check" class="w-4 h-4 mt-0.5 text-emerald-400 flex-shrink-0"></i>
+                <span>Click any cell to edit inline — changes save automatically</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <i data-lucide="check" class="w-4 h-4 mt-0.5 text-emerald-400 flex-shrink-0"></i>
+                <span>Assign categories to organize your income and expenses</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <i data-lucide="check" class="w-4 h-4 mt-0.5 text-emerald-400 flex-shrink-0"></i>
+                <span>View calculations for Daily, Weekly, Monthly, and Yearly frequencies</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <i data-lucide="check" class="w-4 h-4 mt-0.5 text-emerald-400 flex-shrink-0"></i>
+                <span>Click column headers to sort your data</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Bar -->
+      <div class="glass-card p-6">
+        <div class="flex flex-wrap items-center gap-3 mb-6">
+          <button id="addIncome" class="btn btn-success">
+            <i data-lucide="plus-circle" class="w-4 h-4"></i>
+            Add Income
+          </button>
+          <button id="addExpense" class="btn btn-primary">
+            <i data-lucide="plus-circle" class="w-4 h-4"></i>
+            Add Expense
+          </button>
+          <button id="btnExample" class="btn btn-ghost">
+            <i data-lucide="sparkles" class="w-4 h-4"></i>
+            Load Example Data
+          </button>
+          <div class="flex-1"></div>
+          <button id="btnClearAll" class="btn btn-ghost text-red-400">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+            Clear All
+          </button>
+        </div>
+
+        <!-- Data Table -->
+        <div class="overflow-x-auto rounded-xl border border-slate-700/50">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th class="w-24 sortable" data-sort="type">
+                  <div class="flex items-center gap-2">
+                    <i data-lucide="tag" class="w-4 h-4"></i>
+                    Type <span class="sort-indicator"></span>
+                  </div>
+                </th>
+                <th class="min-w-[140px] sortable" data-sort="name">
+                  <div class="flex items-center gap-2">
+                    <i data-lucide="file-text" class="w-4 h-4"></i>
+                    Name <span class="sort-indicator"></span>
+                  </div>
+                </th>
+                <th class="w-36 sortable" data-sort="value">
+                  <div class="flex items-center gap-2">
+                    <i data-lucide="dollar-sign" class="w-4 h-4"></i>
+                    Amount / % <span class="sort-indicator"></span>
+                  </div>
+                </th>
+                <th class="w-28 sortable" data-sort="freq">
+                  <div class="flex items-center gap-2">
+                    <i data-lucide="repeat" class="w-4 h-4"></i>
+                    Frequency <span class="sort-indicator"></span>
+                  </div>
+                </th>
+                <th class="w-32 sortable" data-sort="category">
+                  <div class="flex items-center gap-2">
+                    <i data-lucide="tags" class="w-4 h-4"></i>
+                    Category <span class="sort-indicator"></span>
+                  </div>
+                </th>
+                <th class="w-20 text-right">
+                  <div class="flex items-center justify-end gap-2">
+                    <span>Daily</span>
+                    <i data-lucide="calculator" class="w-4 h-4"></i>
+                  </div>
+                </th>
+                <th class="w-20 text-right">
+                  <div class="flex items-center justify-end gap-2">
+                    <span>Weekly</span>
+                    <i data-lucide="calculator" class="w-4 h-4"></i>
+                  </div>
+                </th>
+                <th class="w-20 text-right">
+                  <div class="flex items-center justify-end gap-2">
+                    <span>Monthly</span>
+                    <i data-lucide="calculator" class="w-4 h-4"></i>
+                  </div>
+                </th>
+                <th class="w-20 text-right">
+                  <div class="flex items-center justify-end gap-2">
+                    <span>Yearly</span>
+                    <i data-lucide="calculator" class="w-4 h-4"></i>
+                  </div>
+                </th>
+                <th class="w-20 text-center">
+                  <i data-lucide="settings" class="w-4 h-4 mx-auto"></i>
+                </th>
+              </tr>
+            </thead>
+            <tbody id="ledgerBody">
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // Initialize Lucide icons
+    lucide.createIcons();
+
+    // ===== State Management =====
+    const state = {
+      rows: [],
+      view: 'monthly',
+      lastMonthData: { income: 0, expenses: 0, net: 0 },
+      categories: ['Salary', 'Freelance', 'Investments', 'Other Income', 'Housing', 'Food', 'Transport', 'Utilities', 'Entertainment', 'Healthcare', 'Education', 'Other'],
+      sortColumn: null,
+      sortDirection: 'asc',
+      defaultCategories: ['Salary', 'Freelance', 'Investments', 'Other Income', 'Housing', 'Food', 'Transport', 'Utilities', 'Entertainment', 'Healthcare', 'Education', 'Other']
+    };
+
+    function save() {
+      try {
+        localStorage.setItem('financialAnalyticsPro', JSON.stringify(state));
+      } catch(e) { console.error('Save failed:', e); }
+    }
+
+    function load() {
+      try {
+        const data = localStorage.getItem('financialAnalyticsPro');
+        if (data) Object.assign(state, JSON.parse(data));
+      } catch(e) { console.error('Load failed:', e); }
+    }
+
+    // ===== Formatting =====
+    const fmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    const fmtDecimal = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
+    const fmtPct = new Intl.NumberFormat('en-US', { style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
+    // ===== Calculations =====
+    function toMonthly(val, freq) {
+      const m = { daily:30.4167, weekly:4.33, monthly:1, yearly:1/12 };
+      return val * (m[freq] || 1);
+    }
+
+    function fromMonthly(val, view) {
+      const m = { daily:1/30.4167, weekly:1/4.33, monthly:1, yearly:12 };
+      return val * (m[view] || 1);
+    }
+
+    function parseValue(valueStr, row) {
+      const percentMatch = valueStr.match(/^(\d+(?:\.\d+)?)\s*%\s*(?:of\s*)?@?(\w+)$/i);
+      if (percentMatch) {
+        return { mode: 'percent', value: parseFloat(percentMatch[1]), reference: percentMatch[2] };
+      }
+      const justPercent = valueStr.match(/^(\d+(?:\.\d+)?)\s*%$/);
+      if (justPercent) {
+        return { mode: 'percent', value: parseFloat(justPercent[1]), reference: row.reference || '' };
+      }
+      const refMatch = valueStr.match(/@(\w+)/);
+      if (refMatch) {
+        return { mode: 'percent', value: row.value || 0, reference: refMatch[1] };
+      }
+      const amount = parseFloat(valueStr.replace(/[^0-9.-]/g, '')) || 0;
+      return { mode: 'amount', value: amount, reference: '' };
+    }
+
+    function calcMonthlyValues() {
+      const results = new Map();
+      const visited = new Set();
+      const nameToId = new Map();
+      
+      state.rows.forEach(row => {
+        if (row.name) nameToId.set(row.name.toLowerCase().trim(), row.id);
+      });
+
+      function compute(id, depth = 0) {
+        if (depth > 50) return 0;
+        if (results.has(id)) return results.get(id);
+        if (visited.has(id)) return 0;
+        
+        visited.add(id);
+        const row = state.rows.find(r => r.id === id);
+        if (!row) { visited.delete(id); return 0; }
+        
+        let val = 0;
+        if (row.mode === 'percent' && row.reference) {
+          const refId = nameToId.get(row.reference.toLowerCase().trim());
+          if (refId) {
+            const refVal = compute(refId, depth + 1);
+            val = refVal * (Number(row.value) || 0) / 100;
+          }
+        } else if (row.mode === 'amount') {
+          val = toMonthly(Number(row.value) || 0, row.freq || 'monthly');
+        }
+        
+        results.set(id, val);
+        visited.delete(id);
+        return val;
+      }
+
+      const totals = { inc: 0, exp: 0, net: 0 };
+      
+      for (const row of state.rows) {
+        const val = compute(row.id);
+        if (row.type === 'income') totals.inc += val;
+        else totals.exp += val;
+      }
+      
+      totals.net = totals.inc - totals.exp;
+      return { totals, results };
+    }
+
+    // ===== Sorting =====
+    function getSortedRows() {
+      let sorted = [...state.rows];
+      
+      if (state.sortColumn) {
+        sorted.sort((a, b) => {
+          let aVal = a[state.sortColumn];
+          let bVal = b[state.sortColumn];
+          
+          if (state.sortColumn === 'value') {
+            aVal = Number(aVal) || 0;
+            bVal = Number(bVal) || 0;
+          }
+          
+          if (aVal < bVal) return state.sortDirection === 'asc' ? -1 : 1;
+          if (aVal > bVal) return state.sortDirection === 'asc' ? 1 : -1;
+          return 0;
+        });
+      }
+      
+      return sorted;
+    }
+
+    // ===== Chart Instances =====
+    let chartTrend, chartBreakdown, sparkIncome, sparkExpense, sparkNet;
+
+    // ===== Table Rendering =====
+    function renderTable() {
+      const tbody = document.getElementById('ledgerBody');
+      if (!tbody) return;
+      
+      const { results } = calcMonthlyValues();
+      const sortedRows = getSortedRows();
+      
+      tbody.innerHTML = sortedRows.map((r) => {
+        const monthly = results.get(r.id) || 0;
+        const daily = fromMonthly(monthly, 'daily');
+        const weekly = fromMonthly(monthly, 'weekly');
+        const yearly = fromMonthly(monthly, 'yearly');
+        
+        const displayValue = r.mode === 'percent' 
+          ? `${r.value}%${r.reference ? ' of @' + r.reference : ''}`
+          : r.value;
+        
+        return `
+          <tr data-id="${r.id}">
+            <td>
+              <select class="w-full cell-change" data-field="type" style="padding: 8px 12px;">
+                <option value="income" ${r.type === 'income' ? 'selected' : ''}>Income</option>
+                <option value="expense" ${r.type === 'expense' ? 'selected' : ''}>Expense</option>
+              </select>
+            </td>
+            <td>
+              <input type="text" value="${r.name || ''}" placeholder="e.g., Salary, Rent, Tips" 
+                     class="w-full cell-change" data-field="name" />
+            </td>
+            <td>
+              <input type="text" value="${displayValue}" placeholder="300 or 30% of @Salary" 
+                     class="w-full cell-change" data-field="value" />
+            </td>
+            <td>
+              <select class="w-full cell-change" data-field="freq" style="padding: 8px 12px;">
+                <option value="daily" ${r.freq === 'daily' ? 'selected' : ''}>Daily</option>
+                <option value="weekly" ${r.freq === 'weekly' ? 'selected' : ''}>Weekly</option>
+                <option value="monthly" ${r.freq === 'monthly' ? 'selected' : ''}>Monthly</option>
+                <option value="yearly" ${r.freq === 'yearly' ? 'selected' : ''}>Yearly</option>
+              </select>
+            </td>
+            <td>
+              <select class="w-full cell-change" data-field="category" style="padding: 8px 12px;">
+                <option value="">None</option>
+                ${state.categories.map(cat => `<option value="${cat}" ${r.category === cat ? 'selected' : ''}>${cat}</option>`).join('')}
+              </select>
+            </td>
+            <td class="text-right freq-value">
+              ${fmt.format(Math.abs(daily))}
+            </td>
+            <td class="text-right freq-value">
+              ${fmt.format(Math.abs(weekly))}
+            </td>
+            <td class="text-right freq-value highlight">
+              ${fmt.format(Math.abs(monthly))}
+            </td>
+            <td class="text-right freq-value">
+              ${fmt.format(Math.abs(yearly))}
+            </td>
+            <td class="text-center">
+              <button class="btn-delete p-2 rounded-lg hover:bg-red-500/20 transition-colors" title="Delete">
+                <i data-lucide="trash-2" class="w-4 h-4 text-red-400"></i>
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('') + `
+        <tr class="quick-add-row">
+          <td>
+            <select id="quickType" style="padding: 8px 12px;">
+              <option value="expense">Expense</option>
+              <option value="income">Income</option>
+            </select>
+          </td>
+          <td>
+            <input type="text" id="quickName" placeholder="Quick add: Enter name..." class="w-full" />
+          </td>
+          <td>
+            <input type="text" id="quickValue" placeholder="Amount or %" class="w-full" />
+          </td>
+          <td>
+            <select id="quickFreq" style="padding: 8px 12px;">
+              <option value="monthly">Monthly</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="yearly">Yearly</option>
+            </select>
+          </td>
+          <td>
+            <select id="quickCategory" style="padding: 8px 12px;">
+              <option value="">None</option>
+              ${state.categories.map(cat => `<option value="${cat}">${cat}</option>`).join('')}
+            </select>
+          </td>
+          <td colspan="4">
+            <button id="quickAddBtn" class="btn btn-primary w-full">
+              <i data-lucide="plus" class="w-4 h-4"></i>
+              Add Entry
+            </button>
+          </td>
+        </tr>
+      `;
+      
+      lucide.createIcons();
+      attachTableListeners();
+      updateSortIndicators();
+    }
+
+    function updateSortIndicators() {
+      document.querySelectorAll('[data-sort]').forEach(th => {
+        const indicator = th.querySelector('.sort-indicator');
+        if (th.dataset.sort === state.sortColumn) {
+          th.classList.add('sorted');
+          indicator.textContent = state.sortDirection === 'asc' ? '↑' : '↓';
+        } else {
+          th.classList.remove('sorted');
+          indicator.textContent = '';
+        }
+      });
+    }
+
+    function attachTableListeners() {
+      // Column sorting
+      document.querySelectorAll('thead th[data-sort]').forEach(th => {
+        th.addEventListener('click', () => {
+          const col = th.dataset.sort;
+          if (state.sortColumn === col) {
+            state.sortDirection = state.sortDirection === 'asc' ? 'desc' : 'asc';
+          } else {
+            state.sortColumn = col;
+            state.sortDirection = 'asc';
+          }
+          save();
+          renderTable();
+        });
+      });
+
+      document.querySelectorAll('.cell-change').forEach(input => {
+        input.addEventListener('change', function() {
+          const row = this.closest('tr');
+          const id = row?.dataset.id;
+          if (!id) return;
+          
+          const field = this.dataset.field;
+          const rowData = state.rows.find(r => r.id === id);
+          if (!rowData) return;
+          
+          if (field === 'value') {
+            const parsed = parseValue(this.value, rowData);
+            rowData.mode = parsed.mode;
+            rowData.value = parsed.value;
+            rowData.reference = parsed.reference;
+          } else {
+            rowData[field] = this.value;
+          }
+          
+          save();
+          renderTable();
+          refresh();
+        });
+      });
+
+      document.querySelectorAll('.btn-delete').forEach((btn, i) => {
+        btn.addEventListener('click', () => {
+          if (confirm('Delete this entry?')) {
+            const id = btn.closest('tr')?.dataset.id;
+            const index = state.rows.findIndex(r => r.id === id);
+            if (index >= 0) state.rows.splice(index, 1);
+            save();
+            renderTable();
+            refresh();
+          }
+        });
+      });
+
+      const quickAddBtn = document.getElementById('quickAddBtn');
+      const quickName = document.getElementById('quickName');
+      const quickValue = document.getElementById('quickValue');
+      const quickCategory = document.getElementById('quickCategory');
+
+      quickAddBtn?.addEventListener('click', () => {
+        if (!quickName.value.trim()) {
+          quickName.focus();
+          return;
+        }
+
+        const parsed = parseValue(quickValue.value || '0', {});
+        
+        state.rows.push({
+          id: crypto.randomUUID?.() || String(Date.now() + Math.random()),
+          type: document.getElementById('quickType').value,
+          name: quickName.value.trim(),
+          value: parsed.value,
+          mode: parsed.mode,
+          reference: parsed.reference,
+          freq: document.getElementById('quickFreq').value,
+          category: quickCategory.value || ''
+        });
+
+        save();
+        renderTable();
+        refresh();
+        quickName.value = '';
+        quickValue.value = '';
+        quickCategory.value = '';
+        quickName.focus();
+      });
+
+      [quickName, quickValue].forEach(input => {
+        input?.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') quickAddBtn?.click();
+        });
+      });
+    }
+
+    // ===== Dashboard Refresh =====
+    function refresh() {
+      const v = state.view;
+      const V = v[0].toUpperCase() + v.slice(1);
+      document.getElementById('viewLabel').textContent = V;
+      
+      document.querySelectorAll('#viewSwitcher button').forEach(btn => {
+        btn.classList.toggle('pill-active', btn.dataset.view === v);
+        btn.classList.toggle('pill-soft', btn.dataset.view !== v);
+      });
+      
+      const { totals, results } = calcMonthlyValues();
+      const incV = fromMonthly(totals.inc, v);
+      const expV = fromMonthly(totals.exp, v);
+      const netV = fromMonthly(totals.net, v);
+      
+      // Update KPIs
+      document.getElementById('kpiIncome').textContent = fmt.format(incV);
+      document.getElementById('kpiExpenses').textContent = fmt.format(expV);
+      document.getElementById('kpiNet').textContent = fmt.format(netV);
+      
+      const savingsRate = totals.inc > 0 ? (totals.net / totals.inc) : 0;
+      document.getElementById('kpiMargin').textContent = fmtPct.format(savingsRate);
+      
+      // Update progress circle
+      const circumference = 175.93;
+      const offset = circumference - (savingsRate * circumference);
+      document.getElementById('progressCircle').style.strokeDashoffset = offset;
+      
+      // Trend indicators
+      const incChange = state.lastMonthData.income > 0 ? (incV - state.lastMonthData.income) / state.lastMonthData.income : 0;
+      const expChange = state.lastMonthData.expenses > 0 ? (expV - state.lastMonthData.expenses) / state.lastMonthData.expenses : 0;
+      const netChange = state.lastMonthData.net !== 0 ? (netV - state.lastMonthData.net) / Math.abs(state.lastMonthData.net) : 0;
+      
+      updateTrendBadge('incomeChange', incChange, true);
+      updateTrendBadge('expenseChange', expChange, false);
+      updateTrendBadge('netChange', netChange, true);
+      
+      // Stats
+      document.getElementById('statEntries').textContent = state.rows.length;
+      document.getElementById('statRecurring').textContent = state.rows.filter(r => r.freq !== 'monthly').length;
+      document.getElementById('statAvgDaily').textContent = fmt.format(fromMonthly(totals.exp, 'daily'));
+      
+      // Financial Health Score
+      const healthScore = Math.min(100, Math.max(0, Math.round(savingsRate * 100 + 30)));
+      document.getElementById('healthScore').textContent = healthScore;
+      const healthCircumference = 440;
+      const healthOffset = healthCircumference - ((healthScore / 100) * healthCircumference);
+      document.getElementById('healthCircle').style.strokeDashoffset = healthOffset;
+      
+      const healthStatus = healthScore >= 75 ? 'Excellent financial health! 💪' :
+                          healthScore >= 50 ? 'Good financial standing 👍' :
+                          healthScore >= 25 ? 'Room for improvement 📊' :
+                          'Consider reviewing your budget 📉';
+      document.getElementById('healthStatus').textContent = healthStatus;
+      
+      // Top Expenses
+      const expenseRows = state.rows.filter(r => r.type === 'expense')
+        .map(r => ({ ...r, amount: fromMonthly(results.get(r.id) || 0, v) }))
+        .sort((a, b) => b.amount - a.amount)
+        .slice(0, 5);
+      
+      document.getElementById('topExpenses').innerHTML = expenseRows.length > 0 
+        ? expenseRows.map(r => `
+          <div class="flex items-center justify-between p-3 rounded-lg bg-slate-800/30">
+            <div class="flex-1">
+              <p class="text-sm font-semibold text-white">${r.name || '(unnamed)'}</p>
+              <p class="text-xs text-slate-400">${r.category ? `${r.category} · ${r.freq}` : r.freq}</p>
+            </div>
+            <span class="text-sm font-bold text-red-400">${fmt.format(r.amount)}</span>
+          </div>
+        `).join('')
+        : '<p class="text-sm text-slate-400 text-center py-8">No expenses yet</p>';
+      
+      // Update Charts
+      updateCharts(totals, results, v);
+    }
+
+    function updateTrendBadge(id, change, higherIsBetter) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      
+      const isPositive = higherIsBetter ? change > 0 : change < 0;
+      const icon = change > 0 ? 'arrow-up' : change < 0 ? 'arrow-down' : 'minus';
+      const className = isPositive ? 'trend-badge up' : 'trend-badge down';
+      
+      el.className = className;
+      el.innerHTML = `
+        <i data-lucide="${icon}" class="w-3 h-3"></i>
+        ${Math.abs(change * 100).toFixed(1)}%
+      `;
+      lucide.createIcons();
+    }
+
+    function updateCharts(totals, results, view) {
+      const incV = fromMonthly(totals.inc, view);
+      const expV = fromMonthly(totals.exp, view);
+      
+      // Trend Chart
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+      const trendData = months.map((_, i) => ({
+        income: incV * (0.9 + Math.random() * 0.2),
+        expense: expV * (0.9 + Math.random() * 0.2)
+      }));
+      
+      if (!chartTrend) {
+        chartTrend = new Chart(document.getElementById('chartTrend'), {
+          type: 'line',
+          data: {
+            labels: months,
+            datasets: [{
+              label: 'Income',
+              data: trendData.map(d => d.income),
+              borderColor: '#10b981',
+              backgroundColor: 'rgba(16, 185, 129, 0.1)',
+              fill: true,
+              tension: 0.4
+            }, {
+              label: 'Expenses',
+              data: trendData.map(d => d.expense),
+              borderColor: '#ef4444',
+              backgroundColor: 'rgba(239, 68, 68, 0.1)',
+              fill: true,
+              tension: 0.4
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                padding: 12,
+                borderColor: 'rgba(100, 116, 180, 0.3)',
+                borderWidth: 1,
+                callbacks: {
+                  label: ctx => `${ctx.dataset.label}: ${fmt.format(ctx.parsed.y)}`
+                }
+              }
+            },
+            scales: {
+              y: {
+                beginAtZero: true,
+                grid: { color: 'rgba(100, 116, 180, 0.1)' },
+                ticks: {
+                  color: '#94a3b8',
+                  callback: value => fmt.format(value)
+                }
+              },
+              x: {
+                grid: { display: false },
+                ticks: { color: '#94a3b8' }
+              }
+            }
+          }
+        });
+      } else {
+        chartTrend.data.datasets[0].data = trendData.map(d => d.income);
+        chartTrend.data.datasets[1].data = trendData.map(d => d.expense);
+        chartTrend.update();
+      }
+      
+      // Breakdown Chart
+      const expenseRows = state.rows.filter(r => r.type === 'expense');
+      const labels = expenseRows.map(r => r.name || '(unnamed)');
+      const data = expenseRows.map(r => fromMonthly(results.get(r.id) || 0, view));
+      
+      if (!chartBreakdown) {
+        chartBreakdown = new Chart(document.getElementById('chartBreakdown'), {
+          type: 'doughnut',
+          data: {
+            labels,
+            datasets: [{
+              data,
+              backgroundColor: [
+                '#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16',
+                '#22c55e', '#10b981', '#14b8a6', '#06b6d4', '#0ea5e9',
+                '#3b82f6', '#6366f1', '#8b5cf6', '#a855f7', '#d946ef'
+              ],
+              borderWidth: 2,
+              borderColor: '#0f172a'
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'bottom',
+                labels: {
+                  color: '#cbd5e1',
+                  padding: 15,
+                  font: { size: 11 },
+                  usePointStyle: true
+                }
+              },
+              tooltip: {
+                backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                padding: 12,
+                borderColor: 'rgba(100, 116, 180, 0.3)',
+                borderWidth: 1,
+                callbacks: {
+                  label: ctx => `${ctx.label}: ${fmt.format(ctx.parsed)}`
+                }
+              }
+            }
+          }
+        });
+      } else {
+        chartBreakdown.data.labels = labels;
+        chartBreakdown.data.datasets[0].data = data;
+        chartBreakdown.update();
+      }
+      
+      // Sparklines
+      const sparkData = [0.8, 0.9, 1.0, 0.95, 1.1, 1.0].map(m => incV * m);
+      updateSparkline('sparkIncome', sparkData, '#10b981');
+      updateSparkline('sparkExpense', sparkData, '#ef4444');
+      updateSparkline('sparkNet', sparkData.map((v, i) => v - expV * [0.9, 0.95, 0.9, 1.0, 0.85, 0.9][i]), '#3b82f6');
+    }
+
+    function updateSparkline(id, data, color) {
+      const canvas = document.getElementById(id);
+      if (!canvas) return;
+      
+      const ctx = canvas.getContext('2d');
+      const width = canvas.width = 80;
+      const height = canvas.height = 30;
+      
+      const max = Math.max(...data);
+      const min = Math.min(...data);
+      const range = max - min || 1;
+      
+      ctx.clearRect(0, 0, width, height);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      
+      data.forEach((val, i) => {
+        const x = (i / (data.length - 1)) * width;
+        const y = height - ((val - min) / range) * height;
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      });
+      
+      ctx.stroke();
+    }
+
+    // ===== Category Management =====
+    function renderCategoryModal() {
+      const list = document.getElementById('categoryList');
+      if (list) {
+        list.innerHTML = state.categories.map(cat => `
+          <div class="category-item">
+            <span>${cat}</span>
+            <span class="remove-cat" onclick="removeCategory('${cat}')">
+              <i data-lucide="x" class="w-4 h-4"></i>
+            </span>
+          </div>
+        `).join('');
+        lucide.createIcons();
+      }
+    }
+
+    function removeCategory(cat) {
+      state.categories = state.categories.filter(c => c !== cat);
+      renderCategoryModal();
+      save();
+    }
+
+    document.getElementById('btnCategories')?.addEventListener('click', () => {
+      document.getElementById('categoryModal').classList.add('active');
+      renderCategoryModal();
+    });
+
+    document.getElementById('closeCategoryModal')?.addEventListener('click', () => {
+      document.getElementById('categoryModal').classList.remove('active');
+    });
+
+    document.getElementById('addCategoryBtn')?.addEventListener('click', () => {
+      const input = document.getElementById('newCategoryInput');
+      if (input.value.trim() && !state.categories.includes(input.value.trim())) {
+        state.categories.push(input.value.trim());
+        input.value = '';
+        renderCategoryModal();
+        save();
+      }
+    });
+
+    document.getElementById('newCategoryInput')?.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') document.getElementById('addCategoryBtn').click();
+    });
+
+    document.getElementById('resetCategoriesBtn')?.addEventListener('click', () => {
+      if (confirm('Reset categories to default?')) {
+        state.categories = [...state.defaultCategories];
+        renderCategoryModal();
+        save();
+      }
+    });
+
+    document.getElementById('confirmCategoryBtn')?.addEventListener('click', () => {
+      document.getElementById('categoryModal').classList.remove('active');
+      renderTable();
+      refresh();
+    });
+
+    document.getElementById('categoryModal')?.addEventListener('click', (e) => {
+      if (e.target.id === 'categoryModal') {
+        document.getElementById('categoryModal').classList.remove('active');
+      }
+    });
+
+    // ===== Actions =====
+    document.getElementById('addIncome')?.addEventListener('click', () => {
+      state.rows.push({
+        id: crypto.randomUUID?.() || String(Date.now() + Math.random()),
+        type: 'income',
+        name: '',
+        value: 0,
+        mode: 'amount',
+        reference: '',
+        freq: 'monthly',
+        category: ''
+      });
+      save();
+      renderTable();
+      refresh();
+    });
+
+    document.getElementById('addExpense')?.addEventListener('click', () => {
+      state.rows.push({
+        id: crypto.randomUUID?.() || String(Date.now() + Math.random()),
+        type: 'expense',
+        name: '',
+        value: 0,
+        mode: 'amount',
+        reference: '',
+        freq: 'monthly',
+        category: ''
+      });
+      save();
+      renderTable();
+      refresh();
+    });
+
+    document.getElementById('btnExample')?.addEventListener('click', () => {
+      state.rows = [
+        { id: '1', type:'income', name:'Salary', value:75000, mode:'amount', reference:'', freq:'yearly', category:'Salary' },
+        { id: '2', type:'income', name:'Tips', value:5, mode:'amount', reference:'', freq:'daily', category:'Other Income' },
+        { id: '3', type:'expense', name:'Income Tax', value:30, mode:'percent', reference:'Salary', freq:'yearly', category:'Other' },
+        { id: '4', type:'expense', name:'Electric', value:300, mode:'amount', reference:'', freq:'monthly', category:'Utilities' },
+        { id: '5', type:'expense', name:'Mortgage', value:1800, mode:'amount', reference:'', freq:'monthly', category:'Housing' },
+        { id: '6', type:'expense', name:'Internet', value:60, mode:'amount', reference:'', freq:'monthly', category:'Utilities' },
+        { id: '7', type:'expense', name:'Groceries', value:500, mode:'amount', reference:'', freq:'monthly', category:'Food' },
+        { id: '8', type:'expense', name:'Car Insurance', value:1200, mode:'amount', reference:'', freq:'yearly', category:'Transport' },
+        { id: '9', type:'expense', name:'Gas', value:200, mode:'amount', reference:'', freq:'monthly', category:'Transport' },
+        { id: '10', type:'expense', name:'Dining Out', value:300, mode:'amount', reference:'', freq:'monthly', category:'Food' },
+      ];
+      save();
+      renderTable();
+      refresh();
+    });
+
+    document.getElementById('btnExport')?.addEventListener('click', () => {
+      const blob = new Blob([JSON.stringify({ rows: state.rows }, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `budget-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    document.getElementById('fileImport')?.addEventListener('change', async e => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+        if (!data || !Array.isArray(data.rows)) throw new Error();
+        state.rows = data.rows;
+        save();
+        renderTable();
+        refresh();
+        alert('✅ Data imported successfully!');
+      } catch {
+        alert('❌ Import failed. Invalid file.');
+      } finally {
+        e.target.value = '';
+      }
+    });
+
+    document.getElementById('btnClearAll')?.addEventListener('click', () => {
+      if (!confirm('⚠️ Clear all entries? This cannot be undone.')) return;
+      state.rows = [];
+      save();
+      renderTable();
+      refresh();
+    });
+
+    document.getElementById('viewSwitcher')?.addEventListener('click', e => {
+      const btn = e.target.closest('button[data-view]');
+      if (!btn) return;
+      state.view = btn.dataset.view;
+      save();
+      refresh();
+      if (!document.getElementById('pageEntry').classList.contains('hidden')) {
+        renderTable();
+      }
+    });
+
+    // ===== Routing =====
+    function route() {
+      const hash = location.hash.slice(1) || '/dashboard';
+      const dashboard = document.getElementById('pageDashboard');
+      const entry = document.getElementById('pageEntry');
+      
+      if (hash === '/entry') {
+        dashboard?.classList.add('hidden');
+        entry?.classList.remove('hidden');
+        document.getElementById('navDashboard')?.classList.remove('active');
+        document.getElementById('navEntry')?.classList.add('active');
+        renderTable();
+      } else {
+        dashboard?.classList.remove('hidden');
+        entry?.classList.add('hidden');
+        document.getElementById('navDashboard')?.classList.add('active');
+        document.getElementById('navEntry')?.classList.remove('active');
+      }
+      
+      lucide.createIcons();
+    }
+
+    window.addEventListener('hashchange', route);
+
+    // ===== Initialize =====
+    load();
+    route();
+    refresh();
+    if (!location.hash) location.hash = '#/dashboard';
+  </script>
+</body>
+</html>
