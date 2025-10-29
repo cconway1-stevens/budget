@@ -1,56 +1,106 @@
 import { state } from './state.js';
-import { fmt, fmtPct, fromMonthly } from './formatting.js';
+import { fmt, fmtPct } from './formatting.js';
 
 let chartTrend = null;
 let chartBreakdown = null;
 
-export function updateCharts(totals, results, view) {
-  const history = Array.isArray(state.history) ? state.history : [];
-  const monthFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric' });
+export function updateCharts(trendSeries = {}, goalValue) {
+  const rawLabels = Array.isArray(trendSeries?.labels) ? trendSeries.labels : [];
+  const rawIncome = Array.isArray(trendSeries?.income) ? trendSeries.income : [];
+  const rawExpense = Array.isArray(trendSeries?.expense) ? trendSeries.expense : [];
+  const rawNet = Array.isArray(trendSeries?.net) ? trendSeries.net : [];
 
-  const labels = history.map(entry => {
-    if (!entry?.month) return '';
-    const [year, month] = entry.month.split('-').map(Number);
-    if (!year || !month) return entry.month;
-    return monthFormatter.format(new Date(year, month - 1));
-  });
+  const fallbackLabel = rawLabels[0] ?? 'Current';
+  const fallbackIncome = Number.isFinite(rawIncome[0]) ? rawIncome[0] : 0;
+  const fallbackExpense = Number.isFinite(rawExpense[0]) ? rawExpense[0] : 0;
+  const fallbackNet = Number.isFinite(rawNet[0]) ? rawNet[0] : (fallbackIncome - fallbackExpense);
 
-  const incomeSeries = history.map(entry => fromMonthly(entry?.income || 0, view));
-  const expenseSeries = history.map(entry => fromMonthly(entry?.expense || 0, view));
+  const labels = rawLabels.length ? rawLabels : [fallbackLabel];
+  const incomeSeries = labels.map((_, idx) => Number.isFinite(rawIncome[idx]) ? rawIncome[idx] : fallbackIncome);
+  const expenseSeries = labels.map((_, idx) => Number.isFinite(rawExpense[idx]) ? rawExpense[idx] : fallbackExpense);
+  const netSeries = labels.map((_, idx) => Number.isFinite(rawNet[idx]) ? rawNet[idx] : fallbackNet);
 
-  if (!labels.length) {
-    labels.push('Current');
-    incomeSeries.push(fromMonthly(totals.inc, view));
-    expenseSeries.push(fromMonthly(totals.exp, view));
+  const goalLine = Number.isFinite(goalValue)
+    ? labels.map(() => goalValue)
+    : null;
+
+  const netDataset = {
+    label: 'Net',
+    data: netSeries,
+    borderColor: '#38bdf8',
+    backgroundColor: ctx => (ctx?.parsed?.y ?? 0) >= 0
+      ? 'rgba(56, 189, 248, 0.25)'
+      : 'rgba(239, 68, 68, 0.25)',
+    fill: 'origin',
+    tension: 0.25,
+    borderWidth: 2.5,
+    pointRadius: 4,
+    pointHoverRadius: 6,
+    pointBackgroundColor: '#38bdf8',
+    pointBorderColor: '#0f172a',
+    pointBorderWidth: 2,
+    order: 1
+  };
+
+  const incomeBandDataset = {
+    label: 'Income band',
+    data: incomeSeries,
+    borderColor: 'rgba(16, 185, 129, 0.6)',
+    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+    borderWidth: 1.5,
+    borderDash: [6, 6],
+    pointRadius: 0,
+    pointHoverRadius: 0,
+    tension: 0,
+    stepped: true,
+    fill: 'origin',
+    order: 0
+  };
+
+  const expenseBandDataset = {
+    label: 'Expense band',
+    data: expenseSeries,
+    borderColor: 'rgba(239, 68, 68, 0.6)',
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+    borderWidth: 1.5,
+    borderDash: [6, 6],
+    pointRadius: 0,
+    pointHoverRadius: 0,
+    tension: 0,
+    stepped: true,
+    fill: 'origin',
+    order: 0
+  };
+
+  const datasets = [incomeBandDataset, expenseBandDataset, netDataset];
+
+  if (goalLine) {
+    datasets.push({
+      label: 'Goal',
+      data: goalLine,
+      borderColor: '#facc15',
+      borderWidth: 1.5,
+      borderDash: [8, 6],
+      pointRadius: 0,
+      pointHoverRadius: 0,
+      fill: false,
+      order: 2
+    });
   }
 
-  if (!chartTrend) {
-    chartTrend = new Chart(document.getElementById('chartTrend'), {
+  const trendCanvas = document.getElementById('chartTrend');
+
+  if (!chartTrend && trendCanvas) {
+    chartTrend = new Chart(trendCanvas, {
       type: 'line',
       data: {
         labels,
-        datasets: [
-          {
-            label: 'Income',
-            data: incomeSeries,
-            borderColor: '#10b981',
-            backgroundColor: 'rgba(16, 185, 129, 0.1)',
-            fill: true,
-            tension: 0.4
-          },
-          {
-            label: 'Expenses',
-            data: expenseSeries,
-            borderColor: '#ef4444',
-            backgroundColor: 'rgba(239, 68, 68, 0.1)',
-            fill: true,
-            tension: 0.4
-          }
-        ]
+        datasets
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
         plugins: {
           legend: { display: false },
           tooltip: {
@@ -58,6 +108,13 @@ export function updateCharts(totals, results, view) {
             padding: 12,
             borderColor: 'rgba(100, 116, 180, 0.3)',
             borderWidth: 1,
+            filter: ctx => ctx.dataset?.label === 'Net' || ctx.dataset?.label === 'Goal',
+            itemSort: (a, b) => {
+              if (a.dataset?.label === b.dataset?.label) return 0;
+              if (a.dataset?.label === 'Net') return -1;
+              if (b.dataset?.label === 'Net') return 1;
+              return 0;
+            },
             callbacks: {
               label: ctx => `${ctx.dataset.label}: ${fmt.format(ctx.parsed.y)}`
             }
@@ -79,11 +136,15 @@ export function updateCharts(totals, results, view) {
         }
       }
     });
-  } else {
+  } else if (chartTrend && trendCanvas) {
     chartTrend.data.labels = labels;
-    chartTrend.data.datasets[0].data = incomeSeries;
-    chartTrend.data.datasets[1].data = expenseSeries;
+    chartTrend.data.datasets = datasets;
     chartTrend.update();
+  }
+
+  if (!trendCanvas && chartTrend) {
+    chartTrend.destroy();
+    chartTrend = null;
   }
 
   const breakdownCanvas = document.getElementById('chartBreakdown');
