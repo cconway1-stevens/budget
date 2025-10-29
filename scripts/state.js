@@ -39,7 +39,8 @@ export const state = {
     'Education',
     'Other'
   ],
-  totalsByCategory: {}
+  totalsByCategory: {},
+  categoryBreakdown: []
 };
 
 export function generateId() {
