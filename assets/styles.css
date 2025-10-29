@@ -564,6 +564,41 @@ input::placeholder {
   padding: 20px;
 }
 
+.chart-breakdown-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  height: 100%;
+}
+
+.chart-breakdown-container canvas {
+  flex: 1 1 auto;
+}
+
+.legend-compact {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.4rem 0.75rem;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  letter-spacing: 0.02em;
+}
+
+.legend-compact span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.legend-compact .legend-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: currentColor;
+  opacity: 0.75;
+}
+
 /* Navigation */
 .nav-link {
   padding: 0.625rem 1rem;
