@@ -253,6 +253,21 @@ export function refreshDashboard() {
   });
 
   const { totals, results } = calcMonthlyValues();
+  const categoryMonthlyTotals = {};
+  state.rows.forEach(row => {
+    if (!row?.category) return;
+    const monthlyVal = results.get(row.id) || 0;
+    const typeKey = row.type === 'income' ? 'income' : 'expense';
+    if (!categoryMonthlyTotals[row.category]) {
+      categoryMonthlyTotals[row.category] = { income: 0, expense: 0 };
+    }
+    categoryMonthlyTotals[row.category][typeKey] += monthlyVal;
+  });
+
+  const normalizedCategoryTotals = Object.fromEntries(
+    Object.entries(categoryMonthlyTotals).sort(([a], [b]) => a.localeCompare(b))
+  );
+
   const now = new Date();
   const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
@@ -269,6 +284,7 @@ export function refreshDashboard() {
   };
 
   let historyChanged = false;
+  let shouldSave = false;
   if (!lastSnapshot || lastSnapshot.month !== monthKey) {
     state.history.push({ ...monthlySnapshot });
     historyChanged = true;
@@ -282,12 +298,74 @@ export function refreshDashboard() {
   }
 
   if (historyChanged) {
-    save();
+    shouldSave = true;
+  }
+
+  const prevCategoryTotals = JSON.stringify(state.totalsByCategory || {});
+  const serializedCategoryTotals = JSON.stringify(normalizedCategoryTotals);
+  if (prevCategoryTotals !== serializedCategoryTotals) {
+    state.totalsByCategory = normalizedCategoryTotals;
+    shouldSave = true;
   }
 
   const incV = fromMonthly(totals.inc, view);
   const expV = fromMonthly(totals.exp, view);
   const netV = fromMonthly(totals.net, view);
+
+  const totalsByCategory = Object.fromEntries(
+    Object.entries(normalizedCategoryTotals).map(([category, values]) => [
+      category,
+      {
+        income: fromMonthly(values.income, view),
+        expense: fromMonthly(values.expense, view)
+      }
+    ])
+  );
+
+  const bindCategoryKpi = (category, amountId, pctId) => {
+    const amountEl = document.getElementById(amountId);
+    if (!amountEl) return;
+
+    const data = totalsByCategory[category];
+    const incomeAmount = data?.income ?? 0;
+    const expenseAmount = data?.expense ?? 0;
+
+    let displayAmount = 0;
+    let pctOfTotal = 0;
+    let pctType = 'none';
+
+    if (incomeAmount > 0 || expenseAmount > 0) {
+      if (incomeAmount >= expenseAmount && incomeAmount > 0) {
+        displayAmount = incomeAmount;
+        pctType = 'income';
+        pctOfTotal = incV > 0 ? incomeAmount / incV : 0;
+      } else {
+        displayAmount = expenseAmount;
+        pctType = 'expense';
+        pctOfTotal = expV > 0 ? expenseAmount / expV : 0;
+      }
+    }
+
+    amountEl.textContent = fmt.format(displayAmount);
+
+    const pctEl = document.getElementById(pctId);
+    if (pctEl) {
+      const baseText = fmtPct.format(pctOfTotal);
+      const contextText = pctType === 'income'
+        ? `${baseText} of income`
+        : pctType === 'expense'
+          ? `${baseText} of expenses`
+          : baseText;
+      pctEl.textContent = contextText;
+      pctEl.classList.remove('text-emerald-400', 'text-red-400', 'text-slate-400');
+      const colorClass = pctType === 'income'
+        ? 'text-emerald-400'
+        : pctType === 'expense'
+          ? 'text-red-400'
+          : 'text-slate-400';
+      pctEl.classList.add(colorClass);
+    }
+  };
 
   document.getElementById('kpiIncome').textContent = fmt.format(incV);
   document.getElementById('kpiExpenses').textContent = fmt.format(expV);
@@ -312,6 +390,10 @@ export function refreshDashboard() {
   document.getElementById('statEntries').textContent = state.rows.length;
   document.getElementById('statRecurring').textContent = state.rows.filter(r => r.freq !== 'monthly').length;
   document.getElementById('statAvgDaily').textContent = fmt.format(fromMonthly(totals.exp, 'daily'));
+
+  bindCategoryKpi('Investments', 'kpiInvestments', 'kpiInvestmentsPct');
+  bindCategoryKpi('Taxes', 'kpiTaxes', 'kpiTaxesPct');
+  bindCategoryKpi('Savings', 'kpiSavings', 'kpiSavingsPct');
 
   const healthScore = Math.min(100, Math.max(0, Math.round(savingsRate * 100 + 30)));
   document.getElementById('healthScore').textContent = healthScore;
@@ -340,6 +422,10 @@ export function refreshDashboard() {
     const isPositive = summaryChange >= 0;
     summaryEl.textContent = `${isPositive ? '+' : ''}${fmtDecimal.format(summaryChange)}`;
     summaryEl.className = isPositive ? 'text-emerald-400 font-medium' : 'text-red-400 font-medium';
+  }
+
+  if (shouldSave) {
+    save();
   }
 
   updateCharts(totals, results, view);
