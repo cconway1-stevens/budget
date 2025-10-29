@@ -94,6 +94,13 @@ html, body {
   cursor: pointer;
 }
 
+.btn:focus-visible,
+.nav-link:focus-visible,
+.pill:focus-visible {
+  outline: 2px solid rgba(148, 163, 184, 0.6);
+  outline-offset: 2px;
+}
+
 .btn-primary {
   background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   color: white;
