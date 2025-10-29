@@ -473,6 +473,61 @@
         </div>
       </div>
     </section>
+
+    <footer class="mt-16 fade-in" style="animation-delay: 0.9s">
+      <div class="share-footer glass-card p-5 md:p-6">
+        <div class="share-footer-top">
+          <div class="share-footer-meta">
+            <div class="share-footer-icon">
+              <i data-lucide="share-2" class="w-4 h-4"></i>
+            </div>
+            <div>
+              <p class="text-sm font-semibold text-white">Share the GitHub repo</p>
+              <a href="https://github.com/cconway1-stevens/budget" class="share-footer-link" target="_blank" rel="noopener">
+                github.com/cconway1-stevens/budget
+              </a>
+            </div>
+          </div>
+          <div class="share-footer-actions">
+            <button id="copyRepoLink" class="btn btn-ghost btn-compact" type="button">
+              <i data-lucide="copy" class="w-4 h-4"></i>
+              Copy link
+            </button>
+            <button id="copyEmbedCode" class="btn btn-ghost btn-compact" type="button">
+              <i data-lucide="code" class="w-4 h-4"></i>
+              Copy embed
+            </button>
+            <a href="https://github.com/cconway1-stevens/budget" class="btn btn-primary btn-compact" target="_blank" rel="noopener">
+              <i data-lucide="external-link" class="w-4 h-4"></i>
+              Open repo
+            </a>
+          </div>
+        </div>
+
+        <details class="share-footer-details">
+          <summary>
+            <span>Embed snippet &amp; quick access</span>
+            <i data-lucide="chevron-down" class="w-4 h-4"></i>
+          </summary>
+          <div class="share-footer-body">
+            <div class="share-input-group">
+              <label for="repoUrlDisplay" class="share-label">Repository link</label>
+              <div class="share-input-row">
+                <input id="repoUrlDisplay" type="text" readonly class="share-input" />
+              </div>
+            </div>
+            <div class="share-input-group">
+              <label for="embedSnippet" class="share-label">GitHub buttons embed</label>
+              <div class="share-input-row">
+                <textarea id="embedSnippet" class="share-input resize-none" rows="2" readonly></textarea>
+              </div>
+              <p class="share-helper">Drop this snippet into any HTML page to surface live GitHub buttons.</p>
+            </div>
+            <div id="shareStatus" class="share-status" role="status" aria-live="polite"></div>
+          </div>
+        </details>
+      </div>
+    </footer>
   </div>
 
   <script type="module" src="./scripts/main.js"></script>
