@@ -1,6 +1,7 @@
 import { load } from './storage.js';
 import { renderTable, refreshDashboard, initEntryInteractions } from './render.js';
 import { initRouter, route } from './router.js';
+import { initShareWidget } from './share.js';
 
 lucide.createIcons();
 
@@ -9,6 +10,7 @@ renderTable();
 refreshDashboard();
 initEntryInteractions();
 initRouter();
+initShareWidget();
 
 if (!location.hash) {
   location.hash = '#/dashboard';
