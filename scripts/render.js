@@ -312,6 +312,48 @@ export function refreshDashboard() {
   const expV = fromMonthly(totals.exp, view);
   const netV = fromMonthly(totals.net, view);
 
+  const historyEntries = Array.isArray(state.history) ? state.history : [];
+  const monthFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric' });
+  const formattedHistory = historyEntries.map(entry => {
+    const [year, month] = (entry?.month || '').split('-').map(Number);
+    let label = entry?.month || '';
+    if (year && month) {
+      label = monthFormatter.format(new Date(year, month - 1));
+    } else if (!label) {
+      label = 'Current';
+    }
+
+    const incomeVal = fromMonthly(entry?.income || 0, view);
+    const expenseVal = fromMonthly(entry?.expense || 0, view);
+    const netSource = entry?.net ?? ((entry?.income || 0) - (entry?.expense || 0));
+    const netVal = fromMonthly(netSource, view);
+
+    return {
+      label,
+      income: incomeVal,
+      expense: expenseVal,
+      net: netVal
+    };
+  });
+
+  const recentTrend = formattedHistory.slice(-12);
+  const trendFallback = {
+    label: 'Current',
+    income: incV,
+    expense: expV,
+    net: netV
+  };
+  const trendPoints = recentTrend.length ? recentTrend : [trendFallback];
+
+  const trendSeries = {
+    labels: trendPoints.map(point => point.label),
+    income: trendPoints.map(point => point.income),
+    expense: trendPoints.map(point => point.expense),
+    net: trendPoints.map(point => point.net)
+  };
+
+  const goalValue = fromMonthly(state.netGoal ?? 0, view);
+
   const totalsByCategory = Object.fromEntries(
     Object.entries(normalizedCategoryTotals).map(([category, values]) => [
       category,
@@ -534,13 +576,14 @@ export function refreshDashboard() {
     save();
   }
 
-  updateCharts(totals, results, view);
+  updateCharts(trendSeries, goalValue);
 
-  const historyForView = state.history.map(entry => ({
-    income: fromMonthly(entry.income, view),
-    expense: fromMonthly(entry.expense, view),
-    net: fromMonthly(entry.net, view)
-  }));
+  const historyForView = (formattedHistory.length ? formattedHistory : [trendFallback])
+    .map(entry => ({
+      income: entry.income,
+      expense: entry.expense,
+      net: entry.net
+    }));
 
   const historyIncome = historyForView.map(entry => entry.income);
   const historyExpense = historyForView.map(entry => entry.expense);
