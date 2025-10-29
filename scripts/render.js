@@ -395,6 +395,55 @@ export function refreshDashboard() {
   bindCategoryKpi('Taxes', 'kpiTaxes', 'kpiTaxesPct');
   bindCategoryKpi('Savings', 'kpiSavings', 'kpiSavingsPct');
 
+  const topExpensesEl = document.getElementById('topExpenses');
+  if (topExpensesEl) {
+    const expensesWithValues = state.rows
+      .filter(row => row.type === 'expense')
+      .map(row => {
+        const monthlyAmount = results.get(row.id) || 0;
+        return {
+          id: row.id,
+          name: row.category || row.name || 'Uncategorized',
+          monthlyAmount,
+          viewAmount: fromMonthly(monthlyAmount, view)
+        };
+      })
+      .filter(item => item.monthlyAmount > 0);
+
+    if (expensesWithValues.length === 0) {
+      topExpensesEl.innerHTML = `
+        <p class="text-sm text-slate-400">No expenses recorded yet</p>
+      `;
+    } else {
+      const topExpenses = expensesWithValues
+        .sort((a, b) => b.monthlyAmount - a.monthlyAmount)
+        .slice(0, 5);
+
+      const totalExpenses = totals.exp;
+      topExpensesEl.innerHTML = topExpenses.map(expense => {
+        const share = totalExpenses > 0 ? (expense.monthlyAmount / totalExpenses) : 0;
+        const sharePct = Math.min(1, Math.max(0, share));
+        const shareLabel = fmtPct.format(sharePct);
+        const width = `${(sharePct * 100).toFixed(0)}%`;
+        return `
+          <div class="space-y-1">
+            <div class="flex items-center justify-between text-sm">
+              <span class="font-medium text-white">${expense.name}</span>
+              <span class="text-white">${fmt.format(expense.viewAmount)}</span>
+            </div>
+            <div class="flex items-center justify-between text-xs text-slate-400">
+              <span>Share of expenses</span>
+              <span>${shareLabel}</span>
+            </div>
+            <div class="h-1.5 bg-slate-700/60 rounded-full overflow-hidden">
+              <div class="h-full bg-red-500" style="width: ${width};"></div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+  }
+
   const healthScore = Math.min(100, Math.max(0, Math.round(savingsRate * 100 + 30)));
   document.getElementById('healthScore').textContent = healthScore;
   const healthCircumference = 440;
