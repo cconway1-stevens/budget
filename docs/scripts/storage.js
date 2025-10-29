@@ -18,6 +18,9 @@ export function load() {
       if (!Array.isArray(state.categories) || !state.categories.length) {
         state.categories = [...state.defaultCategories];
       }
+      if (!Array.isArray(state.history)) {
+        state.history = [];
+      }
     }
   } catch (e) {
     console.error('Load failed:', e);
