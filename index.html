@@ -530,6 +530,9 @@
     </footer>
   </div>
 
-  <script type="module" src="./scripts/main.js"></script>
+  <script type="module">
+    const scriptUrl = new URL('./scripts/main.js', document.baseURI);
+    import(scriptUrl.href);
+  </script>
 </body>
 </html>
