@@ -21,6 +21,9 @@ export function load() {
       if (!Array.isArray(state.history)) {
         state.history = [];
       }
+      if (typeof state.netGoal !== 'number' || Number.isNaN(state.netGoal)) {
+        state.netGoal = 0;
+      }
     }
   } catch (e) {
     console.error('Load failed:', e);
