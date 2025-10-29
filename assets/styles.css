@@ -205,10 +205,55 @@ html, body {
   backdrop-filter: blur(20px);
   border: 1px solid rgba(100, 116, 180, 0.2);
   border-radius: 20px;
-  padding: 24px;
+  padding: 20px;
   position: relative;
   overflow: hidden;
   transition: all 0.3s ease;
+}
+
+.kpi-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.kpi-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.kpi-card-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+  min-width: 60px;
+}
+
+.kpi-card-stack .trend-badge {
+  padding: 0.2rem 0.45rem;
+  font-size: 0.7rem;
+  line-height: 0.95rem;
+}
+
+.kpi-card-stack canvas {
+  display: block;
+}
+
+.kpi-card-progress {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.kpi-card-progress svg {
+  width: 3.5rem;
+  height: 3.5rem;
 }
 
 .kpi-card::before {
@@ -675,8 +720,8 @@ input::placeholder {
 
 /* Sparkline */
 .sparkline {
-  width: 80px;
-  height: 30px;
+  width: 60px;
+  height: 28px;
 }
 
 /* Frequency Value Cell */
