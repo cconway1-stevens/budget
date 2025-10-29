@@ -458,10 +458,17 @@ export function refreshDashboard() {
   const incChange = state.lastMonthData.income > 0 ? (incV - state.lastMonthData.income) / state.lastMonthData.income : 0;
   const expChange = state.lastMonthData.expenses > 0 ? (expV - state.lastMonthData.expenses) / state.lastMonthData.expenses : 0;
   const netChange = state.lastMonthData.net !== 0 ? (netV - state.lastMonthData.net) / Math.abs(state.lastMonthData.net) : 0;
+  const lastSavingsRate = state.lastMonthData.income > 0
+    ? (state.lastMonthData.net / state.lastMonthData.income)
+    : 0;
+  const savingsChange = lastSavingsRate !== 0
+    ? (savingsRate - lastSavingsRate) / Math.abs(lastSavingsRate)
+    : (savingsRate - lastSavingsRate);
 
   updateTrendBadge('incomeChange', incChange, true);
   updateTrendBadge('expenseChange', expChange, false);
   updateTrendBadge('netChange', netChange, true);
+  updateTrendBadge('savingsChange', savingsChange, true);
 
   document.getElementById('statEntries').textContent = state.rows.length;
   document.getElementById('statRecurring').textContent = state.rows.filter(r => r.freq !== 'monthly').length;
@@ -588,6 +595,7 @@ export function refreshDashboard() {
   const historyIncome = historyForView.map(entry => entry.income);
   const historyExpense = historyForView.map(entry => entry.expense);
   const historyNet = historyForView.map(entry => entry.net);
+  const historySavings = historyForView.map(entry => Math.max(entry.income - entry.expense, 0));
 
   const incomeSpark = historyIncome.length > 1
     ? historyIncome
@@ -598,10 +606,16 @@ export function refreshDashboard() {
   const netSpark = historyNet.length > 1
     ? historyNet
     : [historyNet[0] || 0, historyNet[0] || 0];
+  const savingsSpark = historySavings.length > 1
+    ? historySavings
+    : [historySavings[0] || 0, historySavings[0] || 0];
 
-  updateSparkline('sparkIncome', incomeSpark, '#10b981');
-  updateSparkline('sparkExpense', expenseSpark, '#ef4444');
-  updateSparkline('sparkNet', netSpark, '#3b82f6');
+  const sparkOptions = { width: 60, height: 28, lineWidth: 1.5 };
+
+  updateSparkline('sparkIncome', incomeSpark, '#10b981', sparkOptions);
+  updateSparkline('sparkExpense', expenseSpark, '#ef4444', sparkOptions);
+  updateSparkline('sparkNet', netSpark, '#3b82f6', sparkOptions);
+  updateSparkline('sparkSavings', savingsSpark, '#8b5cf6', sparkOptions);
 }
 
 function updateTrendBadge(id, change, higherIsBetter) {
@@ -620,13 +634,31 @@ function updateTrendBadge(id, change, higherIsBetter) {
   lucide.createIcons();
 }
 
-function updateSparkline(id, data, color) {
+function updateSparkline(id, data, color, options = {}) {
   const canvas = document.getElementById(id);
   if (!canvas) return;
 
   const ctx = canvas.getContext('2d');
-  const width = canvas.width = 80;
-  const height = canvas.height = 30;
+  const dpr = window.devicePixelRatio || 1;
+  const cssWidth = options.width ?? canvas.clientWidth || canvas.width || 80;
+  const cssHeight = options.height ?? canvas.clientHeight || canvas.height || 30;
+
+  canvas.width = cssWidth * dpr;
+  canvas.height = cssHeight * dpr;
+
+  if (options.width) {
+    canvas.style.width = `${cssWidth}px`;
+  }
+
+  if (options.height) {
+    canvas.style.height = `${cssHeight}px`;
+  }
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.scale(dpr, dpr);
+
+  const width = cssWidth;
+  const height = cssHeight;
 
   const max = Math.max(...data);
   const min = Math.min(...data);
@@ -634,11 +666,15 @@ function updateSparkline(id, data, color) {
 
   ctx.clearRect(0, 0, width, height);
   ctx.strokeStyle = color;
-  ctx.lineWidth = 2;
+  ctx.lineWidth = options.lineWidth ?? 2;
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
   ctx.beginPath();
 
+  const divisor = data.length > 1 ? (data.length - 1) : 1;
+
   data.forEach((val, i) => {
-    const x = (i / (data.length - 1)) * width;
+    const x = (i / divisor) * width;
     const y = height - ((val - min) / range) * height;
     if (i === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);
