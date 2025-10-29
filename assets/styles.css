@@ -123,6 +123,7 @@ html, body {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  align-items: stretch;
 }
 
 .share-input {
@@ -134,6 +135,10 @@ html, body {
   color: #e2e8f0;
   font-size: 0.85rem;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .share-input:focus {
@@ -155,7 +160,7 @@ html, body {
 @media (min-width: 640px) {
   .share-input-row {
     flex-direction: row;
-    align-items: center;
+    align-items: stretch;
   }
 }
 
