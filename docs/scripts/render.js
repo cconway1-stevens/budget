@@ -253,6 +253,38 @@ export function refreshDashboard() {
   });
 
   const { totals, results } = calcMonthlyValues();
+  const now = new Date();
+  const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+  if (!Array.isArray(state.history)) {
+    state.history = [];
+  }
+
+  const lastSnapshot = state.history[state.history.length - 1];
+  const monthlySnapshot = {
+    month: monthKey,
+    income: totals.inc,
+    expense: totals.exp,
+    net: totals.net
+  };
+
+  let historyChanged = false;
+  if (!lastSnapshot || lastSnapshot.month !== monthKey) {
+    state.history.push({ ...monthlySnapshot });
+    historyChanged = true;
+  } else if (
+    lastSnapshot.income !== monthlySnapshot.income ||
+    lastSnapshot.expense !== monthlySnapshot.expense ||
+    lastSnapshot.net !== monthlySnapshot.net
+  ) {
+    Object.assign(lastSnapshot, monthlySnapshot);
+    historyChanged = true;
+  }
+
+  if (historyChanged) {
+    save();
+  }
+
   const incV = fromMonthly(totals.inc, view);
   const expV = fromMonthly(totals.exp, view);
   const netV = fromMonthly(totals.net, view);
@@ -312,10 +344,29 @@ export function refreshDashboard() {
 
   updateCharts(totals, results, view);
 
-  const sparkData = [0.8, 0.9, 1.0, 0.95, 1.1, 1.0].map(m => incV * m);
-  updateSparkline('sparkIncome', sparkData, '#10b981');
-  updateSparkline('sparkExpense', sparkData, '#ef4444');
-  updateSparkline('sparkNet', sparkData.map((v, i) => v - expV * [0.9, 0.95, 0.9, 1.0, 0.85, 0.9][i]), '#3b82f6');
+  const historyForView = state.history.map(entry => ({
+    income: fromMonthly(entry.income, view),
+    expense: fromMonthly(entry.expense, view),
+    net: fromMonthly(entry.net, view)
+  }));
+
+  const historyIncome = historyForView.map(entry => entry.income);
+  const historyExpense = historyForView.map(entry => entry.expense);
+  const historyNet = historyForView.map(entry => entry.net);
+
+  const incomeSpark = historyIncome.length > 1
+    ? historyIncome
+    : [historyIncome[0] || 0, historyIncome[0] || 0];
+  const expenseSpark = historyExpense.length > 1
+    ? historyExpense
+    : [historyExpense[0] || 0, historyExpense[0] || 0];
+  const netSpark = historyNet.length > 1
+    ? historyNet
+    : [historyNet[0] || 0, historyNet[0] || 0];
+
+  updateSparkline('sparkIncome', incomeSpark, '#10b981');
+  updateSparkline('sparkExpense', expenseSpark, '#ef4444');
+  updateSparkline('sparkNet', netSpark, '#3b82f6');
 }
 
 function updateTrendBadge(id, change, higherIsBetter) {

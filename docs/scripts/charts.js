@@ -5,24 +5,34 @@ let chartTrend = null;
 let chartBreakdown = null;
 
 export function updateCharts(totals, results, view) {
-  const incV = fromMonthly(totals.inc, view);
-  const expV = fromMonthly(totals.exp, view);
+  const history = Array.isArray(state.history) ? state.history : [];
+  const monthFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric' });
 
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
-  const trendData = months.map(() => ({
-    income: incV * (0.9 + Math.random() * 0.2),
-    expense: expV * (0.9 + Math.random() * 0.2)
-  }));
+  const labels = history.map(entry => {
+    if (!entry?.month) return '';
+    const [year, month] = entry.month.split('-').map(Number);
+    if (!year || !month) return entry.month;
+    return monthFormatter.format(new Date(year, month - 1));
+  });
+
+  const incomeSeries = history.map(entry => fromMonthly(entry?.income || 0, view));
+  const expenseSeries = history.map(entry => fromMonthly(entry?.expense || 0, view));
+
+  if (!labels.length) {
+    labels.push('Current');
+    incomeSeries.push(fromMonthly(totals.inc, view));
+    expenseSeries.push(fromMonthly(totals.exp, view));
+  }
 
   if (!chartTrend) {
     chartTrend = new Chart(document.getElementById('chartTrend'), {
       type: 'line',
       data: {
-        labels: months,
+        labels,
         datasets: [
           {
             label: 'Income',
-            data: trendData.map(d => d.income),
+            data: incomeSeries,
             borderColor: '#10b981',
             backgroundColor: 'rgba(16, 185, 129, 0.1)',
             fill: true,
@@ -30,7 +40,7 @@ export function updateCharts(totals, results, view) {
           },
           {
             label: 'Expenses',
-            data: trendData.map(d => d.expense),
+            data: expenseSeries,
             borderColor: '#ef4444',
             backgroundColor: 'rgba(239, 68, 68, 0.1)',
             fill: true,
@@ -70,23 +80,24 @@ export function updateCharts(totals, results, view) {
       }
     });
   } else {
-    chartTrend.data.datasets[0].data = trendData.map(d => d.income);
-    chartTrend.data.datasets[1].data = trendData.map(d => d.expense);
+    chartTrend.data.labels = labels;
+    chartTrend.data.datasets[0].data = incomeSeries;
+    chartTrend.data.datasets[1].data = expenseSeries;
     chartTrend.update();
   }
 
   const expenseRows = state.rows.filter(r => r.type === 'expense');
-  const labels = expenseRows.map(r => r.name || '(unnamed)');
-  const data = expenseRows.map(r => fromMonthly(results.get(r.id) || 0, view));
+  const expenseLabels = expenseRows.map(r => r.name || '(unnamed)');
+  const expenseData = expenseRows.map(r => fromMonthly(results.get(r.id) || 0, view));
 
   if (!chartBreakdown) {
     chartBreakdown = new Chart(document.getElementById('chartBreakdown'), {
       type: 'doughnut',
       data: {
-        labels,
+        labels: expenseLabels,
         datasets: [
           {
-            data,
+            data: expenseData,
             backgroundColor: [
               '#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16',
               '#22c55e', '#10b981', '#14b8a6', '#06b6d4', '#0ea5e9',
@@ -123,8 +134,8 @@ export function updateCharts(totals, results, view) {
       }
     });
   } else {
-    chartBreakdown.data.labels = labels;
-    chartBreakdown.data.datasets[0].data = data;
+    chartBreakdown.data.labels = expenseLabels;
+    chartBreakdown.data.datasets[0].data = expenseData;
     chartBreakdown.update();
   }
 }
