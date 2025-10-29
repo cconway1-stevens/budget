@@ -9,6 +9,8 @@ export const state = {
     'Salary',
     'Freelance',
     'Investments',
+    'Taxes',
+    'Savings',
     'Other Income',
     'Housing',
     'Food',
@@ -25,6 +27,8 @@ export const state = {
     'Salary',
     'Freelance',
     'Investments',
+    'Taxes',
+    'Savings',
     'Other Income',
     'Housing',
     'Food',
@@ -34,7 +38,8 @@ export const state = {
     'Healthcare',
     'Education',
     'Other'
-  ]
+  ],
+  totalsByCategory: {}
 };
 
 export function generateId() {
