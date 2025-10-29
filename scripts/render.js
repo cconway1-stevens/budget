@@ -389,7 +389,30 @@ export function refreshDashboard() {
 
   document.getElementById('statEntries').textContent = state.rows.length;
   document.getElementById('statRecurring').textContent = state.rows.filter(r => r.freq !== 'monthly').length;
-  document.getElementById('statAvgDaily').textContent = fmt.format(fromMonthly(totals.exp, 'daily'));
+
+  const dailyExpenses = fromMonthly(totals.exp, 'daily');
+  const annualExpenses = fromMonthly(totals.exp, 'yearly');
+  document.getElementById('statAvgDaily').textContent = fmt.format(dailyExpenses);
+
+  const annualExpensesEl = document.getElementById('statAnnualExpenses');
+  if (annualExpensesEl) {
+    annualExpensesEl.textContent = fmt.format(annualExpenses);
+  }
+
+  const annualContextEl = document.getElementById('statAnnualContext');
+  if (annualContextEl) {
+    if (annualExpenses > 0) {
+      const annualIncome = fromMonthly(totals.inc, 'yearly');
+      if (annualIncome > 0) {
+        const pctOfIncome = annualExpenses / annualIncome;
+        annualContextEl.textContent = `${fmtPct.format(pctOfIncome)} of annual income`;
+      } else {
+        annualContextEl.textContent = 'No income recorded yet';
+      }
+    } else {
+      annualContextEl.textContent = 'No expenses recorded yet';
+    }
+  }
 
   bindCategoryKpi('Investments', 'kpiInvestments', 'kpiInvestmentsPct');
   bindCategoryKpi('Taxes', 'kpiTaxes', 'kpiTaxesPct');
