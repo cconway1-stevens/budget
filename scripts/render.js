@@ -668,7 +668,17 @@ export function refreshDashboard() {
   const historyIncome = historyForView.map(entry => entry.income);
   const historyExpense = historyForView.map(entry => entry.expense);
   const historyNet = historyForView.map(entry => entry.net);
-  const historySavings = historyForView.map(entry => Math.max(entry.income - entry.expense, 0));
+  const historySavings = historyForView.map(entry => {
+    const netCandidate = Number(entry.net);
+    if (Number.isFinite(netCandidate)) {
+      return netCandidate;
+    }
+
+    const incomeVal = Number(entry.income) || 0;
+    const expenseVal = Number(entry.expense) || 0;
+    const fallback = incomeVal - expenseVal;
+    return Number.isFinite(fallback) ? fallback : 0;
+  });
 
   const incomeSpark = historyIncome.length > 1
     ? historyIncome
@@ -683,7 +693,7 @@ export function refreshDashboard() {
     ? historySavings
     : [historySavings[0] || 0, historySavings[0] || 0];
 
-  const sparkOptions = { width: 60, height: 28, lineWidth: 1.5 };
+  const sparkOptions = { width: 60, height: 28, lineWidth: 1.75 };
 
   updateSparkline('sparkIncome', incomeSpark, '#10b981', sparkOptions);
   updateSparkline('sparkExpense', expenseSpark, '#ef4444', sparkOptions);
@@ -713,8 +723,10 @@ function updateSparkline(id, data, color, options = {}) {
 
   const ctx = canvas.getContext('2d');
   const dpr = window.devicePixelRatio || 1;
-  const cssWidth = options.width ?? (canvas.clientWidth || canvas.width || 80);
-  const cssHeight = options.height ?? (canvas.clientHeight || canvas.height || 30);
+  const fallbackWidth = Number(canvas.getAttribute('width')) || 60;
+  const fallbackHeight = Number(canvas.getAttribute('height')) || 28;
+  const cssWidth = options.width ?? canvas.clientWidth || fallbackWidth;
+  const cssHeight = options.height ?? canvas.clientHeight || fallbackHeight;
 
   canvas.width = cssWidth * dpr;
   canvas.height = cssHeight * dpr;
@@ -733,20 +745,24 @@ function updateSparkline(id, data, color, options = {}) {
   const width = cssWidth;
   const height = cssHeight;
 
-  const max = Math.max(...data);
-  const min = Math.min(...data);
+  const values = (Array.isArray(data) && data.length ? data : [0, 0]).map(val => {
+    const numeric = Number(val);
+    return Number.isFinite(numeric) ? numeric : 0;
+  });
+  const max = Math.max(...values);
+  const min = Math.min(...values);
   const range = max - min || 1;
 
   ctx.clearRect(0, 0, width, height);
   ctx.strokeStyle = color;
-  ctx.lineWidth = options.lineWidth ?? 2;
+  ctx.lineWidth = options.lineWidth ?? Math.max(1.5, width / 40);
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
   ctx.beginPath();
 
-  const divisor = data.length > 1 ? (data.length - 1) : 1;
+  const divisor = values.length > 1 ? (values.length - 1) : 1;
 
-  data.forEach((val, i) => {
+  values.forEach((val, i) => {
     const x = (i / divisor) * width;
     const y = height - ((val - min) / range) * height;
     if (i === 0) ctx.moveTo(x, y);
