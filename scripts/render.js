@@ -486,7 +486,8 @@ export function refreshDashboard() {
   const snapshotCategoryTotals = JSON.parse(serializedGlobalCategoryTotals || '{}');
 
   const now = new Date();
-  const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const currentYear = now.getFullYear();
+  const monthKey = `${currentYear}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
   if (!Array.isArray(state.history)) {
     state.history = [];
@@ -771,7 +772,102 @@ export function refreshDashboard() {
     }
   }
 
-  bindCategoryKpi('Investments', 'kpiInvestments', 'kpiInvestmentsPct');
+  const investmentValueEl = document.getElementById('kpiInvestments');
+  const investmentReturnEl = document.getElementById('kpiInvestmentsReturn');
+  const investmentPillEl = document.getElementById('investmentPill');
+
+  if (investmentValueEl || investmentReturnEl || investmentPillEl) {
+    const pickValue = (source) => {
+      if (!source || typeof source !== 'object') return 0;
+      const fields = ['investment', 'income', 'expense'];
+      for (const field of fields) {
+        if (field in source) {
+          const numeric = Number(source[field]);
+          if (Number.isFinite(numeric)) {
+            return numeric;
+          }
+        }
+      }
+      return 0;
+    };
+
+    const investmentViewTotals = totalsByCategory['Investments'];
+    let displayAmount = pickValue(investmentViewTotals);
+    if (!investmentViewTotals) {
+      const fallbackMonthly = pickValue(globalCategoryTotals['Investments']);
+      displayAmount = fromMonthly(fallbackMonthly, view);
+    }
+    if (investmentValueEl) {
+      investmentValueEl.textContent = fmt.format(displayAmount);
+    }
+
+    const investmentMonthlyTotals = globalCategoryTotals['Investments'];
+    let currentMonthlyValue = pickValue(investmentMonthlyTotals);
+    if (!Number.isFinite(currentMonthlyValue)) {
+      currentMonthlyValue = 0;
+    }
+
+    const getHistoryInvestmentMonthly = (entry) => {
+      if (!entry || typeof entry !== 'object') return 0;
+      const categories = entry.categories && entry.categories.Investments;
+      if (categories && typeof categories === 'object') {
+        return pickValue(categories);
+      }
+      const fallback = Number(entry.investment);
+      return Number.isFinite(fallback) ? fallback : 0;
+    };
+
+    const investmentHistoryForYear = historyEntries
+      .filter(entry => entry && typeof entry.month === 'string' && entry.month.startsWith(`${currentYear}-`))
+      .sort((a, b) => (a.month || '').localeCompare(b.month || ''));
+
+    let ytdReturn = null;
+    if (investmentHistoryForYear.length > 0) {
+      const firstMonthly = getHistoryInvestmentMonthly(investmentHistoryForYear[0]);
+      const lastRecordedMonthly = getHistoryInvestmentMonthly(investmentHistoryForYear[investmentHistoryForYear.length - 1]);
+      const latestMonthly = Number.isFinite(currentMonthlyValue) ? currentMonthlyValue : lastRecordedMonthly;
+
+      if (Number.isFinite(firstMonthly) && Number.isFinite(latestMonthly)) {
+        if (firstMonthly === 0) {
+          ytdReturn = latestMonthly === 0 ? 0 : null;
+        } else {
+          ytdReturn = (latestMonthly - firstMonthly) / Math.abs(firstMonthly);
+        }
+      }
+    }
+
+    if (investmentReturnEl) {
+      investmentReturnEl.classList.remove('text-emerald-400', 'text-red-400', 'text-slate-300');
+      let returnText = '—';
+      let returnClass = 'text-slate-300';
+
+      if (ytdReturn !== null && Number.isFinite(ytdReturn)) {
+        if (ytdReturn === 0) {
+          returnText = fmtPct.format(0);
+        } else {
+          const isPositive = ytdReturn > 0;
+          const sign = isPositive ? '+' : '−';
+          returnText = `${sign}${fmtPct.format(Math.abs(ytdReturn))}`;
+          returnClass = isPositive ? 'text-emerald-400' : 'text-red-400';
+        }
+      }
+
+      investmentReturnEl.textContent = returnText;
+      investmentReturnEl.classList.add(returnClass);
+    }
+
+    if (investmentPillEl) {
+      investmentPillEl.classList.remove('stat-pill-positive', 'stat-pill-negative');
+      if (ytdReturn !== null && Number.isFinite(ytdReturn)) {
+        if (ytdReturn > 0) {
+          investmentPillEl.classList.add('stat-pill-positive');
+        } else if (ytdReturn < 0) {
+          investmentPillEl.classList.add('stat-pill-negative');
+        }
+      }
+    }
+  }
+
   bindCategoryKpi('Taxes', 'kpiTaxes', 'kpiTaxesPct');
   bindCategoryKpi('Savings', 'kpiSavings', 'kpiSavingsPct');
 
