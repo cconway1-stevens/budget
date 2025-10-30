@@ -1,4 +1,4 @@
-import { state, calcMonthlyValues, generateId, normalizeRows, calculateNetWorth, calculateAccountContributions, createAccount, getAccountById } from './state.js';
+import { state, calcMonthlyValues, generateId, normalizeRows, calculateNetWorth, calculateAccountContributions, createAccount, getAccountById, projectAccountValue, calculateTimeToTarget, calculatePassiveIncome } from './state.js';
 import { save } from './storage.js';
 import { fmt, fmtDecimal, fmtPct, fromMonthly, parseValue } from './formatting.js';
 import { updateCharts } from './charts.js';
@@ -1156,6 +1156,9 @@ export function refreshDashboard() {
 
   // Render income allocation waterfall
   renderAllocationWaterfall();
+
+  // Render projections and goals
+  renderProjections();
 }
 
 function updateTrendBadge(id, change, higherIsBetter) {
@@ -1403,17 +1406,33 @@ function setupActionButtons() {
   const exampleBtn = document.getElementById('btnExample');
   if (exampleBtn) {
     exampleBtn.addEventListener('click', () => {
+      // Create example accounts first
+      state.accounts = [];
+      const account401k = createAccount('401k', 'retirement', 85000, 0.07);
+      const accountBrokerage = createAccount('Brokerage', 'investment', 42000, 0.08);
+      const accountSavings = createAccount('Emergency Fund', 'savings', 15000, 0.02);
+      createAccount('Checking', 'liquid', 8500, 0);
+
+      // Create example income and allocations
       state.rows = [
+        // Income
         { id: '1', type: 'income', name: 'Salary', value: 75000, mode: 'amount', reference: '', freq: 'yearly', category: 'Salary' },
         { id: '2', type: 'income', name: 'Tips', value: 5, mode: 'amount', reference: '', freq: 'daily', category: 'Other Income' },
-        { id: '3', type: 'expense', name: 'Income Tax', value: 30, mode: 'percent', reference: 'Salary', freq: 'yearly', category: 'Other' },
-        { id: '4', type: 'expense', name: 'Electric', value: 300, mode: 'amount', reference: '', freq: 'monthly', category: 'Utilities' },
-        { id: '5', type: 'expense', name: 'Mortgage', value: 1800, mode: 'amount', reference: '', freq: 'monthly', category: 'Housing' },
+
+        // Wealth Building Allocations
+        { id: '11', type: 'allocation', name: '401k Contribution', value: 1250, mode: 'amount', reference: '', freq: 'monthly', category: 'Investments', isWealthBuilding: true, targetAccount: account401k.id },
+        { id: '12', type: 'allocation', name: 'Brokerage Investment', value: 500, mode: 'amount', reference: '', freq: 'monthly', category: 'Investments', isWealthBuilding: true, targetAccount: accountBrokerage.id },
+        { id: '13', type: 'allocation', name: 'Emergency Fund', value: 400, mode: 'amount', reference: '', freq: 'monthly', category: 'Savings', isWealthBuilding: true, targetAccount: accountSavings.id },
+
+        // Living Expenses
+        { id: '3', type: 'expense', name: 'Income Tax', value: 22, mode: 'percent', reference: 'Salary', freq: 'yearly', category: 'Taxes' },
+        { id: '4', type: 'expense', name: 'Electric', value: 150, mode: 'amount', reference: '', freq: 'monthly', category: 'Utilities' },
+        { id: '5', type: 'expense', name: 'Rent', value: 1400, mode: 'amount', reference: '', freq: 'monthly', category: 'Housing' },
         { id: '6', type: 'expense', name: 'Internet', value: 60, mode: 'amount', reference: '', freq: 'monthly', category: 'Utilities' },
-        { id: '7', type: 'expense', name: 'Groceries', value: 500, mode: 'amount', reference: '', freq: 'monthly', category: 'Food' },
-        { id: '8', type: 'expense', name: 'Car Insurance', value: 1200, mode: 'amount', reference: '', freq: 'yearly', category: 'Transport' },
-        { id: '9', type: 'expense', name: 'Gas', value: 200, mode: 'amount', reference: '', freq: 'monthly', category: 'Transport' },
-        { id: '10', type: 'expense', name: 'Dining Out', value: 300, mode: 'amount', reference: '', freq: 'monthly', category: 'Food' }
+        { id: '7', type: 'expense', name: 'Groceries', value: 450, mode: 'amount', reference: '', freq: 'monthly', category: 'Food' },
+        { id: '8', type: 'expense', name: 'Car Insurance', value: 900, mode: 'amount', reference: '', freq: 'yearly', category: 'Transport' },
+        { id: '9', type: 'expense', name: 'Gas', value: 180, mode: 'amount', reference: '', freq: 'monthly', category: 'Transport' },
+        { id: '10', type: 'expense', name: 'Dining Out', value: 250, mode: 'amount', reference: '', freq: 'monthly', category: 'Food' }
       ];
       save();
       renderTable();
@@ -1704,6 +1723,78 @@ function renderAllocationWaterfall() {
   if (spendingRatioEl && income > 0) {
     const spendingRatio = (expenses / income) * 100;
     spendingRatioEl.textContent = spendingRatio.toFixed(0) + '%';
+  }
+}
+
+function renderProjections() {
+  const accounts = state.accounts || [];
+
+  // Calculate net worth projections by summing all account projections
+  let projection5y = 0;
+  let projection10y = 0;
+  let projection20y = 0;
+
+  accounts.forEach(account => {
+    if (account.isActive) {
+      projection5y += projectAccountValue(account, 5);
+      projection10y += projectAccountValue(account, 10);
+      projection20y += projectAccountValue(account, 20);
+    }
+  });
+
+  // Update projection displays
+  const proj5yEl = document.getElementById('projection5y');
+  const proj10yEl = document.getElementById('projection10y');
+  const proj20yEl = document.getElementById('projection20y');
+
+  if (proj5yEl) proj5yEl.textContent = fmt.format(projection5y);
+  if (proj10yEl) proj10yEl.textContent = fmt.format(projection10y);
+  if (proj20yEl) proj20yEl.textContent = fmt.format(projection20y);
+
+  // Calculate passive income
+  const annualPassiveIncome = calculatePassiveIncome(0.04);
+  const monthlyPassiveIncome = annualPassiveIncome / 12;
+
+  const passiveAnnualEl = document.getElementById('passiveIncomeAnnual');
+  const passiveMonthlyEl = document.getElementById('passiveIncomeMonthly');
+
+  if (passiveAnnualEl) passiveAnnualEl.textContent = fmt.format(annualPassiveIncome);
+  if (passiveMonthlyEl) passiveMonthlyEl.textContent = fmt.format(monthlyPassiveIncome) + '/mo';
+
+  // Calculate time to milestones
+  const formatTimeToGoal = (months) => {
+    if (months === null || months === undefined) return 'Need wealth building';
+    if (months <= 0) return 'Already achieved! 🎉';
+
+    const years = Math.floor(months / 12);
+    const remainingMonths = Math.round(months % 12);
+
+    if (years === 0) {
+      return `${remainingMonths} month${remainingMonths !== 1 ? 's' : ''}`;
+    } else if (remainingMonths === 0) {
+      return `${years} year${years !== 1 ? 's' : ''}`;
+    } else {
+      return `${years}y ${remainingMonths}m`;
+    }
+  };
+
+  const goal100kEl = document.getElementById('goal100k');
+  const goal500kEl = document.getElementById('goal500k');
+  const goal1mEl = document.getElementById('goal1m');
+
+  if (goal100kEl) {
+    const months = calculateTimeToTarget(100000);
+    goal100kEl.textContent = formatTimeToGoal(months);
+  }
+
+  if (goal500kEl) {
+    const months = calculateTimeToTarget(500000);
+    goal500kEl.textContent = formatTimeToGoal(months);
+  }
+
+  if (goal1mEl) {
+    const months = calculateTimeToTarget(1000000);
+    goal1mEl.textContent = formatTimeToGoal(months);
   }
 }
 
