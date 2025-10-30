@@ -195,6 +195,10 @@
             <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Type</span>
             <div id="dashboardFilterTypes" class="flex flex-wrap gap-2"></div>
           </div>
+          <button id="clearDashboardFilters" class="pill pill-soft text-orange-400 hover:bg-orange-500/10" style="display: none;">
+            <i data-lucide="x-circle" class="w-3 h-3"></i>
+            Clear Filters
+          </button>
         </div>
       </div>
 
@@ -795,31 +799,31 @@
                     Frequency <span class="sort-indicator"></span>
                   </div>
                 </th>
-                <th class="w-32 sortable" data-sort="category">
+                <th class="w-32 sortable hide-mobile" data-sort="category">
                   <div class="flex items-center gap-2">
                     <i data-lucide="tags" class="w-4 h-4"></i>
                     Category <span class="sort-indicator"></span>
                   </div>
                 </th>
-                <th class="w-20 text-right">
+                <th class="w-20 text-right hide-mobile">
                   <div class="flex items-center justify-end gap-2">
                     <span>Daily</span>
                     <i data-lucide="calculator" class="w-4 h-4"></i>
                   </div>
                 </th>
-                <th class="w-20 text-right">
+                <th class="w-20 text-right hide-mobile">
                   <div class="flex items-center justify-end gap-2">
                     <span>Weekly</span>
                     <i data-lucide="calculator" class="w-4 h-4"></i>
                   </div>
                 </th>
-                <th class="w-20 text-right">
+                <th class="w-20 text-right hide-tablet">
                   <div class="flex items-center justify-end gap-2">
                     <span>Monthly</span>
                     <i data-lucide="calculator" class="w-4 h-4"></i>
                   </div>
                 </th>
-                <th class="w-20 text-right">
+                <th class="w-20 text-right hide-mobile">
                   <div class="flex items-center justify-end gap-2">
                     <span>Yearly</span>
                     <i data-lucide="calculator" class="w-4 h-4"></i>
