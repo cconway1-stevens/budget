@@ -491,6 +491,51 @@ html, body {
   display: block;
 }
 
+.kpi-metric-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+.kpi-metric-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.kpi-metric-row + .kpi-metric-row {
+  border-top: 1px solid rgba(148, 163, 184, 0.12);
+  padding-top: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.kpi-metric-label {
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+.kpi-metric-value {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.kpi-metric-number {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #e2e8f0;
+  text-align: right;
+  min-width: 4.5rem;
+}
+
 .kpi-card-progress {
   display: flex;
   justify-content: flex-start;
