@@ -1,4 +1,4 @@
-import { state, calcMonthlyValues, generateId } from './state.js';
+import { state, calcMonthlyValues, generateId, normalizeRows } from './state.js';
 import { save } from './storage.js';
 import { fmt, fmtDecimal, fmtPct, fromMonthly, parseValue } from './formatting.js';
 import { updateCharts } from './charts.js';
@@ -1390,7 +1390,7 @@ function setupImportExport() {
         const text = await file.text();
         const data = JSON.parse(text);
         if (!data || !Array.isArray(data.rows)) throw new Error('Invalid file');
-        state.rows = data.rows;
+        state.rows = normalizeRows(data.rows);
         save();
         renderTable();
         refreshDashboard();
