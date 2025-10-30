@@ -313,79 +313,52 @@
             <h3 class="text-lg font-bold text-white">Quick Stats</h3>
             <i data-lucide="zap" class="w-5 h-5 text-slate-400"></i>
           </div>
-          <div class="space-y-4">
-            <div class="stat-mini">
-              <div class="flex items-center gap-3">
-                <i data-lucide="wallet" class="w-5 h-5 text-blue-400"></i>
-                <div>
-                  <p class="text-xs text-slate-400">Total Entries</p>
-                  <p id="statEntries" class="text-lg font-bold text-white">0</p>
-                </div>
+          <div class="quick-stats-grid">
+            <div class="stat-chip">
+              <span id="statEntries" class="stat-chip-value">0</span>
+              <div class="stat-chip-text">
+                <span class="stat-chip-label">Total Entries</span>
               </div>
             </div>
-            <div class="stat-mini">
-              <div class="flex items-center gap-3">
-                <i data-lucide="repeat" class="w-5 h-5 text-purple-400"></i>
-                <div>
-                  <p class="text-xs text-slate-400">Recurring Items</p>
-                  <p id="statRecurring" class="text-lg font-bold text-white">0</p>
-                </div>
+            <div class="stat-chip">
+              <span id="statRecurring" class="stat-chip-value">0</span>
+              <div class="stat-chip-text">
+                <span class="stat-chip-label">Recurring Items</span>
               </div>
             </div>
-            <div class="stat-mini">
-              <div class="flex items-center gap-3">
-                <i data-lucide="target" class="w-5 h-5 text-emerald-400"></i>
-                <div>
-                  <p class="text-xs text-slate-400">Avg Daily Expense</p>
-                  <p id="statAvgDaily" class="text-lg font-bold text-white">$0.00</p>
-                </div>
+            <div class="stat-chip">
+              <span id="statAvgDaily" class="stat-chip-value">$0.00</span>
+              <div class="stat-chip-text">
+                <span class="stat-chip-label">Avg Daily Expense</span>
               </div>
             </div>
-            <div class="stat-mini">
-              <div class="flex items-center gap-3">
-                <i data-lucide="calendar-clock" class="w-5 h-5 text-blue-400"></i>
-                <div>
-                  <p class="text-xs text-slate-400">Annual Expenses</p>
-                  <p id="statAnnualExpenses" class="text-lg font-bold text-white">$0.00</p>
-                  <p id="statAnnualContext" class="text-xs text-slate-500">No expenses recorded yet</p>
-                </div>
+            <div class="stat-chip">
+              <span id="statAnnualExpenses" class="stat-chip-value">$0.00</span>
+              <div class="stat-chip-text">
+                <span class="stat-chip-label">Annual Expenses</span>
+                <span id="statAnnualContext" class="stat-chip-note">No expenses recorded yet</span>
               </div>
             </div>
-            <div class="stat-mini">
-              <div class="flex items-center justify-between gap-3">
-                <div class="flex items-center gap-3">
-                  <i data-lucide="line-chart" class="w-5 h-5 text-amber-400"></i>
-                  <div>
-                    <p class="text-xs text-slate-400">Investments</p>
-                    <p id="kpiInvestments" class="text-lg font-bold text-white">$0.00</p>
-                  </div>
-                </div>
-                <span id="kpiInvestmentsPct" class="text-xs font-semibold text-slate-400">0%</span>
+            <div class="stat-chip">
+              <span id="kpiInvestments" class="stat-chip-value">$0.00</span>
+              <div class="stat-chip-text">
+                <span class="stat-chip-label">Investments</span>
               </div>
+              <span id="kpiInvestmentsPct" class="stat-chip-meta">0%</span>
             </div>
-            <div class="stat-mini">
-              <div class="flex items-center justify-between gap-3">
-                <div class="flex items-center gap-3">
-                  <i data-lucide="receipt" class="w-5 h-5 text-red-400"></i>
-                  <div>
-                    <p class="text-xs text-slate-400">Taxes</p>
-                    <p id="kpiTaxes" class="text-lg font-bold text-white">$0.00</p>
-                  </div>
-                </div>
-                <span id="kpiTaxesPct" class="text-xs font-semibold text-slate-400">0%</span>
+            <div class="stat-chip">
+              <span id="kpiTaxes" class="stat-chip-value">$0.00</span>
+              <div class="stat-chip-text">
+                <span class="stat-chip-label">Taxes</span>
               </div>
+              <span id="kpiTaxesPct" class="stat-chip-meta">0%</span>
             </div>
-            <div class="stat-mini">
-              <div class="flex items-center justify-between gap-3">
-                <div class="flex items-center gap-3">
-                  <i data-lucide="piggy-bank" class="w-5 h-5 text-emerald-400"></i>
-                  <div>
-                    <p class="text-xs text-slate-400">Savings</p>
-                    <p id="kpiSavings" class="text-lg font-bold text-white">$0.00</p>
-                  </div>
-                </div>
-                <span id="kpiSavingsPct" class="text-xs font-semibold text-slate-400">0%</span>
+            <div class="stat-chip">
+              <span id="kpiSavings" class="stat-chip-value">$0.00</span>
+              <div class="stat-chip-text">
+                <span class="stat-chip-label">Savings</span>
               </div>
+              <span id="kpiSavingsPct" class="stat-chip-meta">0%</span>
             </div>
           </div>
         </div>
