@@ -4,14 +4,29 @@ import { fmt, fmtPct, fromMonthly } from './formatting.js';
 let chartTrend = null;
 let chartBreakdown = null;
 
+function valueOrDefault(value, fallback) {
+  return value !== undefined && value !== null ? value : fallback;
+}
+
+function getNested(obj, path) {
+  let current = obj;
+  for (const key of path) {
+    if (current === undefined || current === null) {
+      return undefined;
+    }
+    current = current[key];
+  }
+  return current;
+}
+
 export function updateCharts(trendSeries = {}, goalValue) {
   const resolvedGoal = Number.isFinite(goalValue) ? goalValue : null;
-  const rawLabels = Array.isArray(trendSeries?.labels) ? trendSeries.labels : [];
-  const rawIncome = Array.isArray(trendSeries?.income) ? trendSeries.income : [];
-  const rawExpense = Array.isArray(trendSeries?.expense) ? trendSeries.expense : [];
-  const rawNet = Array.isArray(trendSeries?.net) ? trendSeries.net : [];
+  const rawLabels = trendSeries && Array.isArray(trendSeries.labels) ? trendSeries.labels : [];
+  const rawIncome = trendSeries && Array.isArray(trendSeries.income) ? trendSeries.income : [];
+  const rawExpense = trendSeries && Array.isArray(trendSeries.expense) ? trendSeries.expense : [];
+  const rawNet = trendSeries && Array.isArray(trendSeries.net) ? trendSeries.net : [];
 
-  const fallbackLabel = rawLabels[0] ?? 'Current';
+  const fallbackLabel = valueOrDefault(rawLabels[0], 'Current');
   const labels = rawLabels.length ? rawLabels : [fallbackLabel];
 
   const toNumber = (value) => {
@@ -67,13 +82,16 @@ export function updateCharts(trendSeries = {}, goalValue) {
     borderWidth: 2.5,
     pointRadius: 3,
     pointHoverRadius: 5,
-    pointBackgroundColor: ctx => ((ctx?.parsed?.y ?? 0) >= 0 ? '#38bdf8' : '#f87171'),
+    pointBackgroundColor: ctx => {
+      const yVal = valueOrDefault(getNested(ctx, ['parsed', 'y']), 0);
+      return yVal >= 0 ? '#38bdf8' : '#f87171';
+    },
     pointBorderColor: '#0f172a',
     pointBorderWidth: 2,
     segment: {
       borderColor: ctx => {
-        const prev = ctx?.p0?.parsed?.y ?? 0;
-        const next = ctx?.p1?.parsed?.y ?? prev;
+        const prev = valueOrDefault(getNested(ctx, ['p0', 'parsed', 'y']), 0);
+        const next = valueOrDefault(getNested(ctx, ['p1', 'parsed', 'y']), prev);
         return ((prev + next) / 2) >= 0 ? '#38bdf8' : '#f87171';
       }
     },
@@ -145,7 +163,7 @@ export function updateCharts(trendSeries = {}, goalValue) {
     });
   }
 
-  const yValues = [...netSeries, ...(goalLine ?? [])];
+  const yValues = [...netSeries, ...(goalLine ? goalLine : [])];
   const numericYValues = yValues.filter(value => Number.isFinite(value));
   const minY = numericYValues.length ? Math.min(...numericYValues) : 0;
   const maxY = numericYValues.length ? Math.max(...numericYValues) : 0;
@@ -180,18 +198,24 @@ export function updateCharts(trendSeries = {}, goalValue) {
             borderColor: 'rgba(100, 116, 180, 0.3)',
             borderWidth: 1,
             displayColors: true,
-            filter: ctx => ctx.dataset?.label === 'Net' || ctx.dataset?.label === 'Goal',
+            filter: ctx => {
+              const label = getNested(ctx, ['dataset', 'label']);
+              return label === 'Net' || label === 'Goal';
+            },
             itemSort: (a, b) => {
-              if (a.dataset?.label === b.dataset?.label) return 0;
-              if (a.dataset?.label === 'Net') return -1;
-              if (b.dataset?.label === 'Net') return 1;
+              const labelA = getNested(a, ['dataset', 'label']);
+              const labelB = getNested(b, ['dataset', 'label']);
+              if (labelA === labelB) return 0;
+              if (labelA === 'Net') return -1;
+              if (labelB === 'Net') return 1;
               return 0;
             },
             callbacks: {
               label: ctx => `${ctx.dataset.label}: ${fmt.format(ctx.parsed.y)}`,
               afterLabel: ctx => {
-                const goalTarget = ctx?.chart?.$goalTarget;
-                if (ctx.dataset?.label !== 'Net' || !Number.isFinite(goalTarget)) return undefined;
+                const goalTarget = getNested(ctx, ['chart', '$goalTarget']);
+                const datasetLabel = getNested(ctx, ['dataset', 'label']);
+                if (datasetLabel !== 'Net' || !Number.isFinite(goalTarget)) return undefined;
                 const delta = ctx.parsed.y - goalTarget;
                 if (!Number.isFinite(delta)) return undefined;
                 const sign = delta >= 0 ? '+' : '−';
@@ -241,8 +265,10 @@ export function updateCharts(trendSeries = {}, goalValue) {
   }
 
   const breakdownCanvas = document.getElementById('chartBreakdown');
-  const breakdownContainer = breakdownCanvas?.parentElement;
-  breakdownContainer?.classList.add('chart-breakdown-container', 'chart-breakdown-ranked');
+  const breakdownContainer = breakdownCanvas ? breakdownCanvas.parentElement : null;
+  if (breakdownContainer) {
+    breakdownContainer.classList.add('chart-breakdown-container', 'chart-breakdown-ranked');
+  }
 
   const rankedCategoryTotals = Array.isArray(state.categoryBreakdown)
     ? state.categoryBreakdown
@@ -250,7 +276,12 @@ export function updateCharts(trendSeries = {}, goalValue) {
 
   const viewForBreakdown = state.view || 'monthly';
   const breakdownLabels = rankedCategoryTotals.map(entry => entry.category);
-  const monthlyExpenses = rankedCategoryTotals.map(entry => Math.max(entry?.expense ?? entry?.amount ?? 0, 0));
+  const monthlyExpenses = rankedCategoryTotals.map(entry => {
+    const expense = entry && entry.expense != null ? entry.expense : null;
+    const amount = entry && entry.amount != null ? entry.amount : 0;
+    const rawValue = expense != null ? expense : amount;
+    return Math.max(rawValue || 0, 0);
+  });
   const breakdownValues = monthlyExpenses.map(amount => fromMonthly(amount, viewForBreakdown));
   const totalBreakdownValue = breakdownValues.reduce((sum, val) => sum + val, 0);
 
@@ -271,20 +302,23 @@ export function updateCharts(trendSeries = {}, goalValue) {
   const tooltipCallbacks = {
     label: ctx => {
       const datasetLabel = ctx.dataset.label || '';
-      const rawValue = typeof ctx.parsed?.x === 'number'
-        ? ctx.parsed.x
-        : (typeof ctx.parsed?.y === 'number' ? ctx.parsed.y : 0);
+      const parsedX = getNested(ctx, ['parsed', 'x']);
+      const parsedY = getNested(ctx, ['parsed', 'y']);
+      const rawValue = typeof parsedX === 'number'
+        ? parsedX
+        : (typeof parsedY === 'number' ? parsedY : 0);
       if (ctx.dataset.type === 'line') {
         const pct = rawValue / 100;
         return `${datasetLabel}: ${fmtPct.format(pct)}`;
       }
-      const total = ctx.dataset.metaTotal ?? totalBreakdownValue;
+      const total = valueOrDefault(ctx.dataset.metaTotal, totalBreakdownValue);
       const share = total > 0 ? (rawValue / total) : 0;
       return `${datasetLabel}: ${fmt.format(rawValue)} (${fmtPct.format(share)})`;
     },
     footer: items => {
-      const index = items?.[0]?.dataIndex ?? 0;
-      const pct = cumulativePercentages[index] ?? 0;
+      const firstItem = items && items[0] ? items[0] : null;
+      const index = valueOrDefault(firstItem ? firstItem.dataIndex : undefined, 0);
+      const pct = valueOrDefault(cumulativePercentages[index], 0);
       return `Cumulative: ${fmtPct.format((pct || 0) / 100)}`;
     }
   };
