@@ -6,6 +6,10 @@ export const state = {
   lastMonthData: { income: 0, expenses: 0, net: 0 },
   history: [],
   filterCategory: '',
+  dashboardFilters: {
+    category: 'all',
+    type: 'all'
+  },
   netGoal: 0,
   categories: [
     'Salary',
