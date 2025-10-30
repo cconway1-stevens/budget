@@ -195,9 +195,7 @@ function renderDashboardFilterChips(filters = ensureDashboardFilters()) {
 }
 
 function getSortedRows() {
-  const rows = state.filterCategory
-    ? state.rows.filter(row => (row.category || '') === state.filterCategory)
-    : state.rows;
+  const rows = Array.isArray(state.rows) ? state.rows : [];
 
   const sorted = [...rows];
 
@@ -223,8 +221,34 @@ function getSortedRows() {
 function applyCategoryFilter(category) {
   const normalized = category || '';
   state.filterCategory = state.filterCategory === normalized ? '' : normalized;
+  save();
   renderTable();
   refreshDashboard();
+}
+
+function updateTableFilterNotice(activeCategory, matchCount) {
+  const notice = document.getElementById('tableFilterNotice');
+  if (!notice) return;
+
+  if (!activeCategory) {
+    notice.classList.add('hidden');
+    notice.setAttribute('aria-hidden', 'true');
+    return;
+  }
+
+  const summaryEl = document.getElementById('tableFilterSummary');
+  if (summaryEl) {
+    if (matchCount === 0) {
+      summaryEl.textContent = `No entries currently exist for the '${activeCategory}' category. Add one below or clear the filter.`;
+    } else if (matchCount === 1) {
+      summaryEl.textContent = `1 entry matches the '${activeCategory}' category. Matching rows are highlighted in the table.`;
+    } else {
+      summaryEl.textContent = `${matchCount} entries match the '${activeCategory}' category. Matching rows are highlighted in the table.`;
+    }
+  }
+
+  notice.classList.remove('hidden');
+  notice.setAttribute('aria-hidden', 'false');
 }
 
 export function renderTable() {
@@ -233,6 +257,12 @@ export function renderTable() {
 
   const { results } = calcMonthlyValues();
   const sortedRows = getSortedRows();
+  const activeCategoryFilter = state.filterCategory || '';
+  const matchingRows = activeCategoryFilter
+    ? sortedRows.filter(row => (row.category || '') === activeCategoryFilter).length
+    : 0;
+
+  updateTableFilterNotice(activeCategoryFilter, matchingRows);
 
   tbody.innerHTML = sortedRows.map((r) => {
     const monthly = results.get(r.id) || 0;
@@ -244,8 +274,11 @@ export function renderTable() {
       ? `${r.value}%${r.reference ? ' of @' + r.reference : ''}`
       : r.value;
 
+    const isCategoryMatch = Boolean(activeCategoryFilter) && (r.category || '') === activeCategoryFilter;
+    const rowClassAttr = isCategoryMatch ? ' class="filtered-row"' : '';
+
     return `
-      <tr data-id="${r.id}">
+      <tr data-id="${r.id}"${rowClassAttr}>
         <td>
           <select class="w-full cell-change" data-field="type" style="padding: 8px 12px;">
             <option value="income" ${r.type === 'income' ? 'selected' : ''}>Income</option>
@@ -438,6 +471,18 @@ function attachTableListeners() {
       });
     }
   });
+
+  const clearFilterBtn = document.getElementById('clearTableFilter');
+  if (clearFilterBtn && !clearFilterBtn.dataset.listenerAttached) {
+    clearFilterBtn.dataset.listenerAttached = 'true';
+    clearFilterBtn.addEventListener('click', () => {
+      if (!state.filterCategory) return;
+      state.filterCategory = '';
+      save();
+      renderTable();
+      refreshDashboard();
+    });
+  }
 }
 
 function updateSortIndicators() {
