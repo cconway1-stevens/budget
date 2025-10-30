@@ -371,14 +371,30 @@ export function refreshDashboard() {
   };
   const trendPoints = recentTrend.length ? recentTrend : [trendFallback];
 
-  const trendSeries = {
-    labels: trendPoints.map(point => point.label),
-    income: trendPoints.map(point => point.income),
-    expense: trendPoints.map(point => point.expense),
-    net: trendPoints.map(point => point.net)
+  const toMaybeNumber = (value) => {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : null;
   };
 
-  const goalValue = fromMonthly(state.netGoal ?? 0, view);
+  const trendLabels = trendPoints.map(point => point.label);
+  const incomeSeries = trendPoints.map(point => toMaybeNumber(point?.income) ?? 0);
+  const expenseSeries = trendPoints.map(point => toMaybeNumber(point?.expense) ?? 0);
+  const netSeries = trendPoints.map((point, index) => {
+    const rawNet = toMaybeNumber(point?.net);
+    if (rawNet !== null) return rawNet;
+    return incomeSeries[index] - expenseSeries[index];
+  });
+
+  const trendSeries = {
+    labels: trendLabels,
+    income: incomeSeries,
+    expense: expenseSeries,
+    net: netSeries
+  };
+
+  const rawGoal = typeof state.netGoal === 'number' ? state.netGoal : Number(state.netGoal);
+  const goalValue = Number.isFinite(rawGoal) ? fromMonthly(rawGoal, view) : null;
 
   const rankedCategoryTotals = Object.entries(state.totalsByCategory || {})
     .map(([category, values]) => ({
