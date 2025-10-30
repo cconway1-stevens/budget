@@ -1153,6 +1153,9 @@ export function refreshDashboard() {
 
   // Render accounts and net worth section
   renderAccounts();
+
+  // Render income allocation waterfall
+  renderAllocationWaterfall();
 }
 
 function updateTrendBadge(id, change, higherIsBetter) {
@@ -1624,6 +1627,84 @@ function renderAccounts() {
     .join('');
 
   lucide.createIcons();
+}
+
+function renderAllocationWaterfall() {
+  const { totals } = calcMonthlyValues();
+
+  const income = totals.inc || 0;
+  const expenses = totals.exp || 0;
+  const wealthBuilding = totals.wealthBuilding || 0;
+  const unallocated = income - expenses - wealthBuilding;
+
+  // Update income
+  const incomeEl = document.getElementById('allocationIncome');
+  if (incomeEl) incomeEl.textContent = fmt.format(income);
+
+  // Update expenses
+  const expensesEl = document.getElementById('allocationExpenses');
+  const expensesPctEl = document.getElementById('allocationExpensesPct');
+  const expensesBarEl = document.getElementById('allocationExpensesBar');
+
+  if (expensesEl) expensesEl.textContent = fmt.format(expenses);
+  if (expensesPctEl && income > 0) {
+    const pct = (expenses / income) * 100;
+    expensesPctEl.textContent = pct.toFixed(0) + '%';
+  }
+  if (expensesBarEl && income > 0) {
+    const pct = Math.min(100, (expenses / income) * 100);
+    expensesBarEl.style.width = pct.toFixed(1) + '%';
+  }
+
+  // Update wealth building
+  const wealthEl = document.getElementById('allocationWealth');
+  const wealthPctEl = document.getElementById('allocationWealthPct');
+  const wealthBarEl = document.getElementById('allocationWealthBar');
+
+  if (wealthEl) wealthEl.textContent = fmt.format(wealthBuilding);
+  if (wealthPctEl && income > 0) {
+    const pct = (wealthBuilding / income) * 100;
+    wealthPctEl.textContent = pct.toFixed(0) + '%';
+  }
+  if (wealthBarEl && income > 0) {
+    const pct = Math.min(100, (wealthBuilding / income) * 100);
+    wealthBarEl.style.width = pct.toFixed(1) + '%';
+  }
+
+  // Update unallocated (if any)
+  const unallocatedContainer = document.getElementById('allocationUnallocatedContainer');
+  const unallocatedEl = document.getElementById('allocationUnallocated');
+  const unallocatedPctEl = document.getElementById('allocationUnallocatedPct');
+  const unallocatedBarEl = document.getElementById('allocationUnallocatedBar');
+
+  if (Math.abs(unallocated) > 0.01) {
+    if (unallocatedContainer) unallocatedContainer.classList.remove('hidden');
+    if (unallocatedEl) unallocatedEl.textContent = fmt.format(unallocated);
+    if (unallocatedPctEl && income > 0) {
+      const pct = (unallocated / income) * 100;
+      unallocatedPctEl.textContent = pct.toFixed(0) + '%';
+    }
+    if (unallocatedBarEl && income > 0) {
+      const pct = Math.min(100, Math.abs(unallocated / income) * 100);
+      unallocatedBarEl.style.width = pct.toFixed(1) + '%';
+    }
+  } else {
+    if (unallocatedContainer) unallocatedContainer.classList.add('hidden');
+  }
+
+  // Update summary stats
+  const savingsRateEl = document.getElementById('allocationSavingsRate');
+  const spendingRatioEl = document.getElementById('allocationSpendingRatio');
+
+  if (savingsRateEl && income > 0) {
+    const savingsRate = ((wealthBuilding + unallocated) / income) * 100;
+    savingsRateEl.textContent = savingsRate.toFixed(0) + '%';
+  }
+
+  if (spendingRatioEl && income > 0) {
+    const spendingRatio = (expenses / income) * 100;
+    spendingRatioEl.textContent = spendingRatio.toFixed(0) + '%';
+  }
 }
 
 function setupAccountModal() {
