@@ -195,7 +195,10 @@ function renderDashboardFilterChips(filters = ensureDashboardFilters()) {
 }
 
 function getSortedRows() {
-  const rows = Array.isArray(state.rows) ? state.rows : [];
+  const allRows = Array.isArray(state.rows) ? state.rows : [];
+  const rows = state.filterCategory
+    ? allRows.filter(row => (row.category || '') === state.filterCategory)
+    : allRows;
 
   const sorted = [...rows];
 
