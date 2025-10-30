@@ -240,3 +240,82 @@ export function calculateNetWorth() {
     return total;
   }, 0);
 }
+
+// Calculate projected account value after N years
+export function projectAccountValue(account, years) {
+  if (!account || !account.isActive) return 0;
+
+  const currentBalance = Number(account.balance) || 0;
+  const annualReturn = Number(account.expectedReturn) || 0;
+  const contributions = calculateAccountContributions();
+  const monthlyContribution = contributions.get(account.id) || 0;
+
+  // Future value with regular contributions
+  // FV = PV(1+r)^n + PMT × [((1+r)^n - 1) / r]
+  const monthlyRate = annualReturn / 12;
+  const periods = years * 12;
+
+  if (monthlyRate === 0) {
+    // No growth, just contributions
+    return currentBalance + (monthlyContribution * periods);
+  }
+
+  const futureValueOfPrincipal = currentBalance * Math.pow(1 + monthlyRate, periods);
+  const futureValueOfContributions = monthlyContribution *
+    ((Math.pow(1 + monthlyRate, periods) - 1) / monthlyRate);
+
+  return futureValueOfPrincipal + futureValueOfContributions;
+}
+
+// Calculate when net worth will reach a target
+export function calculateTimeToTarget(targetNetWorth) {
+  const currentNetWorth = calculateNetWorth();
+  const { totals } = calcMonthlyValues();
+  const monthlyWealthBuilding = totals.wealthBuilding || 0;
+
+  if (monthlyWealthBuilding <= 0) {
+    return null; // Can't reach target without wealth building
+  }
+
+  // Calculate weighted average return across all accounts
+  let totalBalance = 0;
+  let weightedReturn = 0;
+
+  state.accounts.forEach(account => {
+    if (account.isActive) {
+      const balance = Number(account.balance) || 0;
+      const returnRate = Number(account.expectedReturn) || 0;
+      totalBalance += balance;
+      weightedReturn += balance * returnRate;
+    }
+  });
+
+  const avgReturn = totalBalance > 0 ? weightedReturn / totalBalance : 0.07;
+
+  // Use simplified calculation: months to target with compound growth
+  // Target = Current × (1+r)^n + Monthly × [((1+r)^n - 1) / r]
+  const monthlyRate = avgReturn / 12;
+
+  if (monthlyRate === 0) {
+    // No growth, linear accumulation
+    const remaining = targetNetWorth - currentNetWorth;
+    return remaining > 0 ? remaining / monthlyWealthBuilding : 0;
+  }
+
+  // Solve for n using approximation (simplified for performance)
+  let months = 0;
+  let netWorth = currentNetWorth;
+
+  while (netWorth < targetNetWorth && months < 600) { // Max 50 years
+    netWorth = netWorth * (1 + monthlyRate) + monthlyWealthBuilding;
+    months++;
+  }
+
+  return months < 600 ? months : null;
+}
+
+// Calculate annual passive income potential at target return
+export function calculatePassiveIncome(returnRate = 0.04) {
+  const netWorth = calculateNetWorth();
+  return netWorth * returnRate;
+}
