@@ -457,6 +457,24 @@
           </button>
         </div>
 
+        <div id="tableFilterNotice" class="table-filter-notice hidden" role="status" aria-live="polite" aria-hidden="true">
+          <div class="table-filter-text">
+            <span class="table-filter-icon">
+              <i data-lucide="filter" class="w-4 h-4"></i>
+            </span>
+            <div>
+              <div class="table-filter-title">Category filter active</div>
+              <div id="tableFilterSummary" class="table-filter-subtitle">
+                Matching rows are highlighted in the table.
+              </div>
+            </div>
+          </div>
+          <button id="clearTableFilter" class="table-filter-clear" type="button">
+            <i data-lucide="x" class="w-4 h-4"></i>
+            Clear filter
+          </button>
+        </div>
+
         <!-- Data Table -->
         <div class="overflow-x-auto rounded-xl border border-slate-700/50">
           <table class="data-table">
