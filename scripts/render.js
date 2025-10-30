@@ -105,6 +105,57 @@ function sortCategoryTotals(totals) {
   return sortedTotals;
 }
 
+function filterCategoryTotalsForDashboard(categories, filters) {
+  const normalizedCategories = (categories && typeof categories === 'object') ? categories : {};
+  const categoryFilter = filters && typeof filters.category === 'string' ? filters.category : 'all';
+  const typeFilter = filters && typeof filters.type === 'string' ? filters.type : 'all';
+
+  const filteredTotals = {};
+
+  Object.entries(normalizedCategories).forEach(([category, totals]) => {
+    if (categoryFilter !== 'all' && category !== categoryFilter) {
+      return;
+    }
+
+    const normalizedTotals = {
+      income: totals && totals.income != null ? totals.income : 0,
+      expense: totals && totals.expense != null ? totals.expense : 0,
+      investment: totals && totals.investment != null ? totals.investment : 0
+    };
+
+    if (typeFilter === 'income') {
+      filteredTotals[category] = {
+        income: normalizedTotals.income,
+        expense: 0,
+        investment: 0
+      };
+      return;
+    }
+
+    if (typeFilter === 'expense') {
+      filteredTotals[category] = {
+        income: 0,
+        expense: normalizedTotals.expense,
+        investment: 0
+      };
+      return;
+    }
+
+    if (typeFilter === 'investment') {
+      filteredTotals[category] = {
+        income: 0,
+        expense: 0,
+        investment: normalizedTotals.investment
+      };
+      return;
+    }
+
+    filteredTotals[category] = normalizedTotals;
+  });
+
+  return filteredTotals;
+}
+
 function deriveDisplayTotals(totals, filterType = 'all') {
   const inc = Number(totals && totals.inc) || 0;
   const expense = Number(totals && totals.exp) || 0;
@@ -779,9 +830,10 @@ export function refreshDashboard() {
   if (topExpensesBody) {
     const historyCount = historyEntries.length;
     const previousEntry = historyCount >= 2 ? historyEntries[historyCount - 2] : null;
-    const previousCategories = (previousEntry && previousEntry.categories && typeof previousEntry.categories === 'object')
+    const previousCategoriesRaw = (previousEntry && previousEntry.categories && typeof previousEntry.categories === 'object')
       ? previousEntry.categories
       : {};
+    const previousCategories = filterCategoryTotalsForDashboard(previousCategoriesRaw, filters);
 
     const allCategories = new Set([
       ...Object.keys(sortedFilteredCategoryTotals),
