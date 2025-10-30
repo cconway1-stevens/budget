@@ -6,16 +6,36 @@ export function route() {
   const entry = document.getElementById('pageEntry');
 
   if (hash === '/entry') {
-    dashboard?.classList.add('hidden');
-    entry?.classList.remove('hidden');
-    document.getElementById('navDashboard')?.classList.remove('active');
-    document.getElementById('navEntry')?.classList.add('active');
+    if (dashboard) {
+      dashboard.classList.add('hidden');
+    }
+    if (entry) {
+      entry.classList.remove('hidden');
+    }
+    const navDashboard = document.getElementById('navDashboard');
+    if (navDashboard) {
+      navDashboard.classList.remove('active');
+    }
+    const navEntry = document.getElementById('navEntry');
+    if (navEntry) {
+      navEntry.classList.add('active');
+    }
     renderTable();
   } else {
-    dashboard?.classList.remove('hidden');
-    entry?.classList.add('hidden');
-    document.getElementById('navDashboard')?.classList.add('active');
-    document.getElementById('navEntry')?.classList.remove('active');
+    if (dashboard) {
+      dashboard.classList.remove('hidden');
+    }
+    if (entry) {
+      entry.classList.add('hidden');
+    }
+    const navDashboard = document.getElementById('navDashboard');
+    if (navDashboard) {
+      navDashboard.classList.add('active');
+    }
+    const navEntry = document.getElementById('navEntry');
+    if (navEntry) {
+      navEntry.classList.remove('active');
+    }
   }
 
   lucide.createIcons();
