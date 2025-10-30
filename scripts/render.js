@@ -820,8 +820,8 @@ function updateSparkline(id, data, color, options = {}) {
   const dpr = window.devicePixelRatio || 1;
   const fallbackWidth = Number(canvas.getAttribute('width')) || 60;
   const fallbackHeight = Number(canvas.getAttribute('height')) || 28;
-  const cssWidth = options.width ?? canvas.clientWidth || fallbackWidth;
-  const cssHeight = options.height ?? canvas.clientHeight || fallbackHeight;
+  const cssWidth = options.width ?? (canvas.clientWidth || fallbackWidth);
+  const cssHeight = options.height ?? (canvas.clientHeight || fallbackHeight);
 
   canvas.width = cssWidth * dpr;
   canvas.height = cssHeight * dpr;
