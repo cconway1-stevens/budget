@@ -3,6 +3,11 @@ import { save } from './storage.js';
 import { fmt, fmtDecimal, fmtPct, fromMonthly, parseValue } from './formatting.js';
 import { updateCharts } from './charts.js';
 
+const ratioFormatter = new Intl.NumberFormat('en-US', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2
+});
+
 function getSortedRows() {
   const sorted = [...state.rows];
 
@@ -311,6 +316,27 @@ export function refreshDashboard() {
   const incV = fromMonthly(totals.inc, view);
   const expV = fromMonthly(totals.exp, view);
   const netV = fromMonthly(totals.net, view);
+  const savingsRate = totals.inc > 0 ? (totals.net / totals.inc) : 0;
+
+  const applyMetricColor = (el, value, positiveIsGood = true) => {
+    if (!el) return;
+    const classes = ['text-emerald-400', 'text-red-400', 'text-slate-300'];
+    el.classList.remove(...classes);
+
+    if (value === null || Number.isNaN(value)) {
+      el.classList.add('text-slate-300');
+      return;
+    }
+
+    if (value === 0) {
+      el.classList.add('text-slate-300');
+      return;
+    }
+
+    const isPositive = value > 0;
+    const isGood = positiveIsGood ? isPositive : !isPositive;
+    el.classList.add(isGood ? 'text-emerald-400' : 'text-red-400');
+  };
 
   const historyEntries = Array.isArray(state.history) ? state.history : [];
   const monthFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric' });
@@ -446,14 +472,6 @@ export function refreshDashboard() {
   document.getElementById('kpiIncome').textContent = fmt.format(incV);
   document.getElementById('kpiExpenses').textContent = fmt.format(expV);
   document.getElementById('kpiNet').textContent = fmt.format(netV);
-
-  const savingsRate = totals.inc > 0 ? (totals.net / totals.inc) : 0;
-  document.getElementById('kpiMargin').textContent = fmtPct.format(savingsRate);
-
-  const circumference = 175.93;
-  const offset = circumference - (savingsRate * circumference);
-  const circle = document.getElementById('progressCircle');
-  if (circle) circle.style.strokeDashoffset = offset;
 
   const incChange = state.lastMonthData.income > 0 ? (incV - state.lastMonthData.income) / state.lastMonthData.income : 0;
   const expChange = state.lastMonthData.expenses > 0 ? (expV - state.lastMonthData.expenses) / state.lastMonthData.expenses : 0;
@@ -591,6 +609,45 @@ export function refreshDashboard() {
       expense: entry.expense,
       net: entry.net
     }));
+
+  const savingsRateEl = document.getElementById('kpiMargin');
+  if (savingsRateEl) {
+    savingsRateEl.textContent = fmtPct.format(savingsRate);
+    applyMetricColor(savingsRateEl, savingsRate, true);
+  }
+
+  const netTrendEl = document.getElementById('metricNetTrend');
+  if (netTrendEl) {
+    const netValues = historyForView
+      .map(entry => entry.net)
+      .filter(value => Number.isFinite(value));
+
+    if (netValues.length) {
+      const recentNet = netValues.slice(-3);
+      const averageNet = recentNet.reduce((sum, value) => sum + value, 0) / recentNet.length;
+      const formattedNet = fmtDecimal.format(averageNet);
+      netTrendEl.textContent = averageNet > 0 ? `+${formattedNet}` : formattedNet;
+      applyMetricColor(netTrendEl, averageNet, true);
+    } else {
+      netTrendEl.textContent = '—';
+      applyMetricColor(netTrendEl, null, true);
+    }
+  }
+
+  const coverageEl = document.getElementById('metricExpenseCoverage');
+  if (coverageEl) {
+    if (expV > 0) {
+      const coverageRatio = incV / expV;
+      coverageEl.textContent = `${ratioFormatter.format(coverageRatio)}×`;
+      applyMetricColor(coverageEl, coverageRatio - 1, true);
+    } else if (incV > 0) {
+      coverageEl.textContent = '∞';
+      applyMetricColor(coverageEl, Number.POSITIVE_INFINITY, true);
+    } else {
+      coverageEl.textContent = '—';
+      applyMetricColor(coverageEl, null, true);
+    }
+  }
 
   const historyIncome = historyForView.map(entry => entry.income);
   const historyExpense = historyForView.map(entry => entry.expense);
