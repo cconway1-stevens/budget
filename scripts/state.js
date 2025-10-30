@@ -46,7 +46,9 @@ export const state = {
     'Other'
   ],
   totalsByCategory: {},
-  categoryBreakdown: []
+  categoryBreakdown: [],
+  // NEW: Account tracking for wealth building
+  accounts: []
 };
 
 export function generateId() {
@@ -55,7 +57,7 @@ export function generateId() {
     : String(Date.now() + Math.random());
 }
 
-const VALID_TYPES = new Set(['income', 'expense', 'investment']);
+const VALID_TYPES = new Set(['income', 'expense', 'investment', 'allocation']);
 const VALID_FREQS = new Set(['daily', 'weekly', 'monthly', 'yearly']);
 
 function normalizeRow(row = {}, seenIds) {
@@ -96,6 +98,19 @@ function normalizeRow(row = {}, seenIds) {
   normalized.freq = VALID_FREQS.has(freq) ? freq : 'monthly';
 
   normalized.category = typeof row.category === 'string' ? row.category : '';
+
+  // NEW: Allocation-specific fields for wealth building tracking
+  normalized.isWealthBuilding = normalized.type === 'allocation'
+    ? Boolean(row.isWealthBuilding)
+    : false;
+
+  normalized.sourceIncome = normalized.type === 'allocation' && typeof row.sourceIncome === 'string'
+    ? row.sourceIncome
+    : '';
+
+  normalized.targetAccount = normalized.type === 'allocation' && typeof row.targetAccount === 'string'
+    ? row.targetAccount
+    : '';
 
   return normalized;
 }
@@ -150,14 +165,78 @@ export function calcMonthlyValues() {
     return val;
   }
 
-  const totals = { inc: 0, exp: 0, net: 0 };
+  const totals = { inc: 0, exp: 0, investment: 0, allocation: 0, wealthBuilding: 0, net: 0 };
 
   for (const row of state.rows) {
     const val = compute(row.id);
-    if (row.type === 'income') totals.inc += val;
-    else totals.exp += val;
+    if (row.type === 'income') {
+      totals.inc += val;
+    } else if (row.type === 'allocation') {
+      totals.allocation += val;
+      if (row.isWealthBuilding) {
+        totals.wealthBuilding += val;
+      }
+    } else if (row.type === 'investment') {
+      totals.investment += val;
+      // Legacy: treat investments as wealth building
+      totals.wealthBuilding += val;
+    } else {
+      totals.exp += val;
+    }
   }
 
+  // Net = income - true expenses (excluding wealth building allocations)
   totals.net = totals.inc - totals.exp;
   return { totals, results };
+}
+
+// Account Management Functions
+
+export function createAccount(name, type, balance = 0, expectedReturn = 0) {
+  const account = {
+    id: generateId(),
+    name: name || 'New Account',
+    type: type || 'savings', // retirement, investment, savings, liquid
+    balance: Number(balance) || 0,
+    expectedReturn: Number(expectedReturn) || 0,
+    isActive: true,
+    createdAt: Date.now()
+  };
+  state.accounts.push(account);
+  return account;
+}
+
+export function getAccountById(accountId) {
+  return state.accounts.find(acc => acc.id === accountId);
+}
+
+export function getAccountByName(accountName) {
+  const normalized = (accountName || '').toLowerCase().trim();
+  return state.accounts.find(acc =>
+    (acc.name || '').toLowerCase().trim() === normalized
+  );
+}
+
+export function calculateAccountContributions() {
+  const contributions = new Map();
+  const { results } = calcMonthlyValues();
+
+  state.rows.forEach(row => {
+    if (row.type === 'allocation' && row.targetAccount) {
+      const monthlyVal = results.get(row.id) || 0;
+      const current = contributions.get(row.targetAccount) || 0;
+      contributions.set(row.targetAccount, current + monthlyVal);
+    }
+  });
+
+  return contributions;
+}
+
+export function calculateNetWorth() {
+  return state.accounts.reduce((total, account) => {
+    if (account.isActive) {
+      return total + (Number(account.balance) || 0);
+    }
+    return total;
+  }, 0);
 }

@@ -1,4 +1,4 @@
-import { state, calcMonthlyValues, generateId, normalizeRows } from './state.js';
+import { state, calcMonthlyValues, generateId, normalizeRows, calculateNetWorth, calculateAccountContributions, createAccount, getAccountById } from './state.js';
 import { save } from './storage.js';
 import { fmt, fmtDecimal, fmtPct, fromMonthly, parseValue } from './formatting.js';
 import { updateCharts } from './charts.js';
@@ -8,7 +8,7 @@ const ratioFormatter = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 2
 });
 
-const VALID_DASHBOARD_TYPES = ['all', 'income', 'expense', 'investment'];
+const VALID_DASHBOARD_TYPES = ['all', 'income', 'expense', 'investment', 'allocation'];
 
 function escapeHtml(value) {
   return String(value)
@@ -183,7 +183,8 @@ function renderDashboardFilterChips(filters = ensureDashboardFilters()) {
       { value: 'all', label: 'All' },
       { value: 'income', label: 'Income' },
       { value: 'expense', label: 'Expense' },
-      { value: 'investment', label: 'Investment' }
+      { value: 'investment', label: 'Investment' },
+      { value: 'allocation', label: 'Allocation' }
     ];
 
     typeContainer.innerHTML = options.map(option => {
@@ -286,6 +287,7 @@ export function renderTable() {
           <select class="w-full cell-change" data-field="type" style="padding: 8px 12px;">
             <option value="income" ${r.type === 'income' ? 'selected' : ''}>Income</option>
             <option value="expense" ${r.type === 'expense' ? 'selected' : ''}>Expense</option>
+            <option value="allocation" ${r.type === 'allocation' ? 'selected' : ''}>Allocation</option>
           </select>
         </td>
         <td>
@@ -1148,6 +1150,12 @@ export function refreshDashboard() {
   updateSparkline('sparkExpense', expenseSpark, '#ef4444', sparkOptions);
   updateSparkline('sparkNet', netSpark, '#3b82f6', sparkOptions);
   updateSparkline('sparkSavings', savingsSpark, '#8b5cf6', sparkOptions);
+
+  // Render accounts and net worth section
+  renderAccounts();
+
+  // Render income allocation waterfall
+  renderAllocationWaterfall();
 }
 
 function updateTrendBadge(id, change, higherIsBetter) {
@@ -1230,6 +1238,7 @@ function updateSparkline(id, data, color, options = {}) {
 
 export function initEntryInteractions() {
   setupCategoryModal();
+  setupAccountModal();
   setupActionButtons();
   setupImportExport();
   setupViewSwitcher();
@@ -1525,4 +1534,231 @@ function setupViewSwitcher() {
       }
     });
   }
+}
+
+// Account Management Functions
+
+function renderAccounts() {
+  const accountsList = document.getElementById('accountsList');
+  const netWorthEl = document.getElementById('netWorthValue');
+  const wealthBuildingRateEl = document.getElementById('wealthBuildingRate');
+
+  if (!accountsList || !netWorthEl || !wealthBuildingRateEl) return;
+
+  const accounts = state.accounts || [];
+  const netWorth = calculateNetWorth();
+  const contributions = calculateAccountContributions();
+  const { totals } = calcMonthlyValues();
+  const wealthBuildingRate = totals.wealthBuilding || 0;
+
+  // Update net worth and wealth building rate
+  netWorthEl.textContent = fmt.format(netWorth);
+  wealthBuildingRateEl.textContent = fmt.format(wealthBuildingRate) + '/mo';
+
+  if (accounts.length === 0) {
+    accountsList.innerHTML = `
+      <div class="text-center py-8 text-slate-400">
+        <i data-lucide="inbox" class="w-12 h-12 mx-auto mb-2 opacity-50"></i>
+        <p>No accounts yet. Add accounts to track your wealth.</p>
+      </div>
+    `;
+    lucide.createIcons();
+    return;
+  }
+
+  const getAccountIcon = (type) => {
+    switch (type) {
+      case 'retirement': return 'piggy-bank';
+      case 'investment': return 'trending-up';
+      case 'savings': return 'landmark';
+      case 'liquid': return 'wallet';
+      default: return 'circle-dollar-sign';
+    }
+  };
+
+  const getAccountColor = (type) => {
+    switch (type) {
+      case 'retirement': return 'text-purple-400';
+      case 'investment': return 'text-emerald-400';
+      case 'savings': return 'text-blue-400';
+      case 'liquid': return 'text-slate-400';
+      default: return 'text-slate-400';
+    }
+  };
+
+  accountsList.innerHTML = accounts
+    .filter(acc => acc.isActive)
+    .map(account => {
+      const contribution = contributions.get(account.id) || 0;
+      const icon = getAccountIcon(account.type);
+      const color = getAccountColor(account.type);
+      const hasReturn = account.expectedReturn > 0;
+
+      return `
+        <div class="p-4 rounded-lg bg-slate-800/50 border border-slate-700 hover:border-slate-600 transition-colors">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-lg bg-slate-700/50 flex items-center justify-center">
+                <i data-lucide="${icon}" class="w-5 h-5 ${color}"></i>
+              </div>
+              <div>
+                <h4 class="font-semibold text-white">${escapeHtml(account.name)}</h4>
+                <span class="text-xs text-slate-400 capitalize">${escapeHtml(account.type)}</span>
+              </div>
+            </div>
+            <div class="text-right">
+              <div class="text-lg font-bold text-white">${fmt.format(account.balance)}</div>
+              ${contribution > 0 ? `
+                <div class="text-xs text-emerald-400 flex items-center gap-1 justify-end">
+                  <i data-lucide="arrow-up" class="w-3 h-3"></i>
+                  ${fmt.format(contribution)}/mo
+                </div>
+              ` : ''}
+              ${hasReturn ? `
+                <div class="text-xs text-slate-400">
+                  ${account.expectedReturn}% return
+                </div>
+              ` : ''}
+            </div>
+          </div>
+        </div>
+      `;
+    })
+    .join('');
+
+  lucide.createIcons();
+}
+
+function renderAllocationWaterfall() {
+  const { totals } = calcMonthlyValues();
+
+  const income = totals.inc || 0;
+  const expenses = totals.exp || 0;
+  const wealthBuilding = totals.wealthBuilding || 0;
+  const unallocated = income - expenses - wealthBuilding;
+
+  // Update income
+  const incomeEl = document.getElementById('allocationIncome');
+  if (incomeEl) incomeEl.textContent = fmt.format(income);
+
+  // Update expenses
+  const expensesEl = document.getElementById('allocationExpenses');
+  const expensesPctEl = document.getElementById('allocationExpensesPct');
+  const expensesBarEl = document.getElementById('allocationExpensesBar');
+
+  if (expensesEl) expensesEl.textContent = fmt.format(expenses);
+  if (expensesPctEl && income > 0) {
+    const pct = (expenses / income) * 100;
+    expensesPctEl.textContent = pct.toFixed(0) + '%';
+  }
+  if (expensesBarEl && income > 0) {
+    const pct = Math.min(100, (expenses / income) * 100);
+    expensesBarEl.style.width = pct.toFixed(1) + '%';
+  }
+
+  // Update wealth building
+  const wealthEl = document.getElementById('allocationWealth');
+  const wealthPctEl = document.getElementById('allocationWealthPct');
+  const wealthBarEl = document.getElementById('allocationWealthBar');
+
+  if (wealthEl) wealthEl.textContent = fmt.format(wealthBuilding);
+  if (wealthPctEl && income > 0) {
+    const pct = (wealthBuilding / income) * 100;
+    wealthPctEl.textContent = pct.toFixed(0) + '%';
+  }
+  if (wealthBarEl && income > 0) {
+    const pct = Math.min(100, (wealthBuilding / income) * 100);
+    wealthBarEl.style.width = pct.toFixed(1) + '%';
+  }
+
+  // Update unallocated (if any)
+  const unallocatedContainer = document.getElementById('allocationUnallocatedContainer');
+  const unallocatedEl = document.getElementById('allocationUnallocated');
+  const unallocatedPctEl = document.getElementById('allocationUnallocatedPct');
+  const unallocatedBarEl = document.getElementById('allocationUnallocatedBar');
+
+  if (Math.abs(unallocated) > 0.01) {
+    if (unallocatedContainer) unallocatedContainer.classList.remove('hidden');
+    if (unallocatedEl) unallocatedEl.textContent = fmt.format(unallocated);
+    if (unallocatedPctEl && income > 0) {
+      const pct = (unallocated / income) * 100;
+      unallocatedPctEl.textContent = pct.toFixed(0) + '%';
+    }
+    if (unallocatedBarEl && income > 0) {
+      const pct = Math.min(100, Math.abs(unallocated / income) * 100);
+      unallocatedBarEl.style.width = pct.toFixed(1) + '%';
+    }
+  } else {
+    if (unallocatedContainer) unallocatedContainer.classList.add('hidden');
+  }
+
+  // Update summary stats
+  const savingsRateEl = document.getElementById('allocationSavingsRate');
+  const spendingRatioEl = document.getElementById('allocationSpendingRatio');
+
+  if (savingsRateEl && income > 0) {
+    const savingsRate = ((wealthBuilding + unallocated) / income) * 100;
+    savingsRateEl.textContent = savingsRate.toFixed(0) + '%';
+  }
+
+  if (spendingRatioEl && income > 0) {
+    const spendingRatio = (expenses / income) * 100;
+    spendingRatioEl.textContent = spendingRatio.toFixed(0) + '%';
+  }
+}
+
+function setupAccountModal() {
+  const btnAddAccount = document.getElementById('btnAddAccount');
+  const accountModal = document.getElementById('accountModal');
+  const closeAccountModal = document.getElementById('closeAccountModal');
+  const cancelAccountBtn = document.getElementById('cancelAccountBtn');
+  const saveAccountBtn = document.getElementById('saveAccountBtn');
+
+  const accountNameInput = document.getElementById('accountName');
+  const accountTypeInput = document.getElementById('accountType');
+  const accountBalanceInput = document.getElementById('accountBalance');
+  const accountReturnInput = document.getElementById('accountReturn');
+
+  if (!btnAddAccount || !accountModal) return;
+
+  const openModal = () => {
+    accountModal.classList.add('modal-active');
+    if (accountNameInput) accountNameInput.value = '';
+    if (accountTypeInput) accountTypeInput.value = 'retirement';
+    if (accountBalanceInput) accountBalanceInput.value = '';
+    if (accountReturnInput) accountReturnInput.value = '7';
+  };
+
+  const closeModal = () => {
+    accountModal.classList.remove('modal-active');
+  };
+
+  const saveAccount = () => {
+    const name = accountNameInput ? accountNameInput.value.trim() : '';
+    const type = accountTypeInput ? accountTypeInput.value : 'savings';
+    const balance = accountBalanceInput ? parseFloat(accountBalanceInput.value) || 0 : 0;
+    const returnRate = accountReturnInput ? parseFloat(accountReturnInput.value) || 0 : 0;
+
+    if (!name) {
+      alert('Please enter an account name');
+      return;
+    }
+
+    createAccount(name, type, balance, returnRate / 100);
+    save();
+    renderAccounts();
+    closeModal();
+  };
+
+  btnAddAccount.addEventListener('click', openModal);
+  if (closeAccountModal) closeAccountModal.addEventListener('click', closeModal);
+  if (cancelAccountBtn) cancelAccountBtn.addEventListener('click', closeModal);
+  if (saveAccountBtn) saveAccountBtn.addEventListener('click', saveAccount);
+
+  // Close modal on outside click
+  accountModal.addEventListener('click', (e) => {
+    if (e.target === accountModal) {
+      closeModal();
+    }
+  });
 }

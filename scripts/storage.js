@@ -41,9 +41,13 @@ export function load() {
           state.dashboardFilters.type = 'all';
         }
         const normalizedType = state.dashboardFilters.type.toLowerCase();
-        state.dashboardFilters.type = ['all', 'income', 'expense', 'investment'].includes(normalizedType)
+        state.dashboardFilters.type = ['all', 'income', 'expense', 'investment', 'allocation'].includes(normalizedType)
           ? normalizedType
           : 'all';
+      }
+      // NEW: Initialize accounts array if missing
+      if (!Array.isArray(state.accounts)) {
+        state.accounts = [];
       }
     }
   } catch (e) {
