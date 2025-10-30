@@ -54,23 +54,27 @@ export function initShareWidget() {
     embedTextarea.value = EMBED_SNIPPET.trim();
   }
 
-  copyLinkBtn?.addEventListener('click', async () => {
-    try {
-      await copyToClipboard(REPO_URL);
-      showStatus('Repository link copied to clipboard!');
-    } catch (err) {
-      console.error(err);
-      showStatus('Unable to copy link. Try manually selecting the text.', true);
-    }
-  });
+  if (copyLinkBtn) {
+    copyLinkBtn.addEventListener('click', async () => {
+      try {
+        await copyToClipboard(REPO_URL);
+        showStatus('Repository link copied to clipboard!');
+      } catch (err) {
+        console.error(err);
+        showStatus('Unable to copy link. Try manually selecting the text.', true);
+      }
+    });
+  }
 
-  copyEmbedBtn?.addEventListener('click', async () => {
-    try {
-      await copyToClipboard(EMBED_SNIPPET);
-      showStatus('Embed code copied. Paste it into any HTML page!');
-    } catch (err) {
-      console.error(err);
-      showStatus('Unable to copy embed code. Try manually selecting the snippet.', true);
-    }
-  });
+  if (copyEmbedBtn) {
+    copyEmbedBtn.addEventListener('click', async () => {
+      try {
+        await copyToClipboard(EMBED_SNIPPET);
+        showStatus('Embed code copied. Paste it into any HTML page!');
+      } catch (err) {
+        console.error(err);
+        showStatus('Unable to copy embed code. Try manually selecting the snippet.', true);
+      }
+    });
+  }
 }

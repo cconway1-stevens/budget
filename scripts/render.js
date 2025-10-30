@@ -169,7 +169,7 @@ function attachTableListeners() {
   document.querySelectorAll('.cell-change').forEach(input => {
     input.addEventListener('change', function () {
       const row = this.closest('tr');
-      const id = row?.dataset.id;
+      const id = row && row.dataset ? row.dataset.id : undefined;
       if (!id) return;
 
       const field = this.dataset.field;
@@ -194,7 +194,8 @@ function attachTableListeners() {
   document.querySelectorAll('.btn-delete').forEach(btn => {
     btn.addEventListener('click', () => {
       if (!confirm('Delete this entry?')) return;
-      const id = btn.closest('tr')?.dataset.id;
+      const closestRow = btn.closest('tr');
+      const id = closestRow && closestRow.dataset ? closestRow.dataset.id : undefined;
       const index = state.rows.findIndex(r => r.id === id);
       if (index >= 0) {
         state.rows.splice(index, 1);
@@ -214,38 +215,42 @@ function attachTableListeners() {
     quickCategory.value = state.filterCategory || '';
   }
 
-  quickAddBtn?.addEventListener('click', () => {
-    if (!quickName.value.trim()) {
+  if (quickAddBtn) {
+    quickAddBtn.addEventListener('click', () => {
+      if (!quickName.value.trim()) {
+        quickName.focus();
+        return;
+      }
+
+      const parsed = parseValue(quickValue.value || '0', {});
+
+      state.rows.push({
+        id: generateId(),
+        type: document.getElementById('quickType').value,
+        name: quickName.value.trim(),
+        value: parsed.value,
+        mode: parsed.mode,
+        reference: parsed.reference,
+        freq: document.getElementById('quickFreq').value,
+        category: quickCategory.value || ''
+      });
+
+      save();
+      renderTable();
+      refreshDashboard();
+      quickName.value = '';
+      quickValue.value = '';
+      quickCategory.value = '';
       quickName.focus();
-      return;
-    }
-
-    const parsed = parseValue(quickValue.value || '0', {});
-
-    state.rows.push({
-      id: generateId(),
-      type: document.getElementById('quickType').value,
-      name: quickName.value.trim(),
-      value: parsed.value,
-      mode: parsed.mode,
-      reference: parsed.reference,
-      freq: document.getElementById('quickFreq').value,
-      category: quickCategory.value || ''
     });
-
-    save();
-    renderTable();
-    refreshDashboard();
-    quickName.value = '';
-    quickValue.value = '';
-    quickCategory.value = '';
-    quickName.focus();
-  });
+  }
 
   [quickName, quickValue].forEach(input => {
-    input?.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') quickAddBtn?.click();
-    });
+    if (input) {
+      input.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter' && quickAddBtn) quickAddBtn.click();
+      });
+    }
   });
 }
 
@@ -275,7 +280,7 @@ export function refreshDashboard() {
   const { totals, results } = calcMonthlyValues();
   const categoryMonthlyTotals = {};
   state.rows.forEach(row => {
-    if (!row?.category) return;
+    if (!row || !row.category) return;
     const monthlyVal = results.get(row.id) || 0;
     const typeKey = row.type === 'income' ? 'income' : 'expense';
     if (!categoryMonthlyTotals[row.category]) {
@@ -290,8 +295,8 @@ export function refreshDashboard() {
   const sortedCategoryTotals = {};
   sortedCategoryEntries.forEach(([category, values]) => {
     sortedCategoryTotals[category] = {
-      income: values?.income ?? 0,
-      expense: values?.expense ?? 0
+      income: values && values.income != null ? values.income : 0,
+      expense: values && values.expense != null ? values.expense : 0
     };
   });
 
@@ -371,17 +376,20 @@ export function refreshDashboard() {
   const historyEntries = Array.isArray(state.history) ? state.history : [];
   const monthFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric' });
   const formattedHistory = historyEntries.map(entry => {
-    const [year, month] = (entry?.month || '').split('-').map(Number);
-    let label = entry?.month || '';
+    const monthString = entry && entry.month ? entry.month : '';
+    const [year, month] = monthString.split('-').map(Number);
+    let label = monthString;
     if (year && month) {
       label = monthFormatter.format(new Date(year, month - 1));
     } else if (!label) {
       label = 'Current';
     }
 
-    const incomeVal = fromMonthly(entry?.income || 0, view);
-    const expenseVal = fromMonthly(entry?.expense || 0, view);
-    const netSource = entry?.net ?? ((entry?.income || 0) - (entry?.expense || 0));
+    const incomeVal = fromMonthly((entry && entry.income) || 0, view);
+    const expenseVal = fromMonthly((entry && entry.expense) || 0, view);
+    const netSource = entry && entry.net != null
+      ? entry.net
+      : (((entry && entry.income) || 0) - ((entry && entry.expense) || 0));
     const netVal = fromMonthly(netSource, view);
 
     return {
@@ -408,10 +416,16 @@ export function refreshDashboard() {
   };
 
   const trendLabels = trendPoints.map(point => point.label);
-  const incomeSeries = trendPoints.map(point => toMaybeNumber(point?.income) ?? 0);
-  const expenseSeries = trendPoints.map(point => toMaybeNumber(point?.expense) ?? 0);
+  const incomeSeries = trendPoints.map(point => {
+    const raw = toMaybeNumber(point ? point.income : undefined);
+    return raw != null ? raw : 0;
+  });
+  const expenseSeries = trendPoints.map(point => {
+    const raw = toMaybeNumber(point ? point.expense : undefined);
+    return raw != null ? raw : 0;
+  });
   const netSeries = trendPoints.map((point, index) => {
-    const rawNet = toMaybeNumber(point?.net);
+    const rawNet = toMaybeNumber(point ? point.net : undefined);
     if (rawNet !== null) return rawNet;
     return incomeSeries[index] - expenseSeries[index];
   });
@@ -429,8 +443,8 @@ export function refreshDashboard() {
   const rankedCategoryTotals = Object.entries(state.totalsByCategory || {})
     .map(([category, values]) => ({
       category,
-      income: Math.max(values?.income ?? 0, 0),
-      expense: Math.max(values?.expense ?? 0, 0)
+      income: Math.max(values && values.income != null ? values.income : 0, 0),
+      expense: Math.max(values && values.expense != null ? values.expense : 0, 0)
     }))
     .filter(entry => entry.income > 0 || entry.expense > 0)
     .sort((a, b) => {
@@ -475,8 +489,8 @@ export function refreshDashboard() {
     if (!amountEl) return;
 
     const data = totalsByCategory[category];
-    const incomeAmount = data?.income ?? 0;
-    const expenseAmount = data?.expense ?? 0;
+    const incomeAmount = data && data.income != null ? data.income : 0;
+    const expenseAmount = data && data.expense != null ? data.expense : 0;
 
     let displayAmount = 0;
     let pctOfTotal = 0;
@@ -569,7 +583,7 @@ export function refreshDashboard() {
   if (topExpensesBody) {
     const historyCount = historyEntries.length;
     const previousEntry = historyCount >= 2 ? historyEntries[historyCount - 2] : null;
-    const previousCategories = (previousEntry?.categories && typeof previousEntry.categories === 'object')
+    const previousCategories = (previousEntry && previousEntry.categories && typeof previousEntry.categories === 'object')
       ? previousEntry.categories
       : {};
 
@@ -820,8 +834,12 @@ function updateSparkline(id, data, color, options = {}) {
   const dpr = window.devicePixelRatio || 1;
   const fallbackWidth = Number(canvas.getAttribute('width')) || 60;
   const fallbackHeight = Number(canvas.getAttribute('height')) || 28;
-  const cssWidth = options.width ?? (canvas.clientWidth || fallbackWidth);
-  const cssHeight = options.height ?? (canvas.clientHeight || fallbackHeight);
+  const cssWidth = options.width !== undefined && options.width !== null
+    ? options.width
+    : (canvas.clientWidth || fallbackWidth);
+  const cssHeight = options.height !== undefined && options.height !== null
+    ? options.height
+    : (canvas.clientHeight || fallbackHeight);
 
   canvas.width = cssWidth * dpr;
   canvas.height = cssHeight * dpr;
@@ -850,7 +868,10 @@ function updateSparkline(id, data, color, options = {}) {
 
   ctx.clearRect(0, 0, width, height);
   ctx.strokeStyle = color;
-  ctx.lineWidth = options.lineWidth ?? Math.max(1.5, width / 40);
+  const desiredLineWidth = options.lineWidth !== undefined && options.lineWidth !== null
+    ? options.lineWidth
+    : Math.max(1.5, width / 40);
+  ctx.lineWidth = desiredLineWidth;
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
   ctx.beginPath();
@@ -883,52 +904,81 @@ function setupCategoryModal() {
   const resetBtn = document.getElementById('resetCategoriesBtn');
   const confirmBtn = document.getElementById('confirmCategoryBtn');
 
-  openBtn?.addEventListener('click', () => {
-    modal?.classList.add('active');
-    renderCategoryModal();
-  });
+  if (openBtn) {
+    openBtn.addEventListener('click', () => {
+      if (modal) {
+        modal.classList.add('active');
+      }
+      renderCategoryModal();
+    });
+  }
 
-  closeBtn?.addEventListener('click', () => {
-    modal?.classList.remove('active');
-  });
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => {
+      if (modal) {
+        modal.classList.remove('active');
+      }
+    });
+  }
 
-  addBtn?.addEventListener('click', () => {
-    if (!input?.value.trim()) return;
-    const value = input.value.trim();
-    if (!state.categories.includes(value)) {
-      state.categories.push(value);
-      input.value = '';
+  if (addBtn) {
+    addBtn.addEventListener('click', () => {
+      const value = input && input.value ? input.value.trim() : '';
+      if (!value) {
+        if (input) {
+          input.focus();
+        }
+        return;
+      }
+      if (!state.categories.includes(value)) {
+        state.categories.push(value);
+        if (input) {
+          input.value = '';
+        }
+        renderCategoryModal();
+        save();
+        renderTable();
+        refreshDashboard();
+      }
+    });
+  }
+
+  if (input) {
+    input.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && addBtn) {
+        addBtn.click();
+      }
+    });
+  }
+
+  if (resetBtn) {
+    resetBtn.addEventListener('click', () => {
+      if (!confirm('Reset categories to default?')) return;
+      state.categories = [...state.defaultCategories];
       renderCategoryModal();
       save();
       renderTable();
       refreshDashboard();
-    }
-  });
+    });
+  }
 
-  input?.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') addBtn?.click();
-  });
+  if (confirmBtn) {
+    confirmBtn.addEventListener('click', () => {
+      if (modal) {
+        modal.classList.remove('active');
+      }
+      renderTable();
+      refreshDashboard();
+    });
+  }
 
-  resetBtn?.addEventListener('click', () => {
-    if (!confirm('Reset categories to default?')) return;
-    state.categories = [...state.defaultCategories];
-    renderCategoryModal();
-    save();
-    renderTable();
-    refreshDashboard();
-  });
-
-  confirmBtn?.addEventListener('click', () => {
-    modal?.classList.remove('active');
-    renderTable();
-    refreshDashboard();
-  });
-
-  modal?.addEventListener('click', (e) => {
-    if (e.target === modal) {
-      modal.classList.remove('active');
-    }
-  });
+  if (modal) {
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        modal.classList.remove('active');
+      }
+    });
+  }
 }
 
 function renderCategoryModal() {
@@ -963,99 +1013,124 @@ function removeCategory(cat) {
 }
 
 function setupActionButtons() {
-  document.getElementById('addIncome')?.addEventListener('click', () => {
-    state.rows.push({
-      id: generateId(),
-      type: 'income',
-      name: '',
-      value: 0,
-      mode: 'amount',
-      reference: '',
-      freq: 'monthly',
-      category: ''
-    });
-    save();
-    renderTable();
-    refreshDashboard();
-  });
-
-  document.getElementById('addExpense')?.addEventListener('click', () => {
-    state.rows.push({
-      id: generateId(),
-      type: 'expense',
-      name: '',
-      value: 0,
-      mode: 'amount',
-      reference: '',
-      freq: 'monthly',
-      category: ''
-    });
-    save();
-    renderTable();
-    refreshDashboard();
-  });
-
-  document.getElementById('btnExample')?.addEventListener('click', () => {
-    state.rows = [
-      { id: '1', type: 'income', name: 'Salary', value: 75000, mode: 'amount', reference: '', freq: 'yearly', category: 'Salary' },
-      { id: '2', type: 'income', name: 'Tips', value: 5, mode: 'amount', reference: '', freq: 'daily', category: 'Other Income' },
-      { id: '3', type: 'expense', name: 'Income Tax', value: 30, mode: 'percent', reference: 'Salary', freq: 'yearly', category: 'Other' },
-      { id: '4', type: 'expense', name: 'Electric', value: 300, mode: 'amount', reference: '', freq: 'monthly', category: 'Utilities' },
-      { id: '5', type: 'expense', name: 'Mortgage', value: 1800, mode: 'amount', reference: '', freq: 'monthly', category: 'Housing' },
-      { id: '6', type: 'expense', name: 'Internet', value: 60, mode: 'amount', reference: '', freq: 'monthly', category: 'Utilities' },
-      { id: '7', type: 'expense', name: 'Groceries', value: 500, mode: 'amount', reference: '', freq: 'monthly', category: 'Food' },
-      { id: '8', type: 'expense', name: 'Car Insurance', value: 1200, mode: 'amount', reference: '', freq: 'yearly', category: 'Transport' },
-      { id: '9', type: 'expense', name: 'Gas', value: 200, mode: 'amount', reference: '', freq: 'monthly', category: 'Transport' },
-      { id: '10', type: 'expense', name: 'Dining Out', value: 300, mode: 'amount', reference: '', freq: 'monthly', category: 'Food' }
-    ];
-    save();
-    renderTable();
-    refreshDashboard();
-  });
-}
-
-function setupImportExport() {
-  document.getElementById('btnExport')?.addEventListener('click', () => {
-    const blob = new Blob([JSON.stringify({ rows: state.rows }, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `budget-${new Date().toISOString().split('T')[0]}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  });
-
-  document.getElementById('fileImport')?.addEventListener('change', async e => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      const text = await file.text();
-      const data = JSON.parse(text);
-      if (!data || !Array.isArray(data.rows)) throw new Error('Invalid file');
-      state.rows = data.rows;
+  const addIncomeBtn = document.getElementById('addIncome');
+  if (addIncomeBtn) {
+    addIncomeBtn.addEventListener('click', () => {
+      state.rows.push({
+        id: generateId(),
+        type: 'income',
+        name: '',
+        value: 0,
+        mode: 'amount',
+        reference: '',
+        freq: 'monthly',
+        category: ''
+      });
       save();
       renderTable();
       refreshDashboard();
-      alert('✅ Data imported successfully!');
-    } catch (err) {
-      console.error(err);
-      alert('❌ Import failed. Invalid file.');
-    } finally {
-      e.target.value = '';
-    }
-  });
+    });
+  }
 
-  document.getElementById('btnClearAll')?.addEventListener('click', () => {
-    if (!confirm('⚠️ Clear all entries? This cannot be undone.')) return;
-    state.rows = [];
-    save();
-    renderTable();
-    refreshDashboard();
-  });
+  const addExpenseBtn = document.getElementById('addExpense');
+  if (addExpenseBtn) {
+    addExpenseBtn.addEventListener('click', () => {
+      state.rows.push({
+        id: generateId(),
+        type: 'expense',
+        name: '',
+        value: 0,
+        mode: 'amount',
+        reference: '',
+        freq: 'monthly',
+        category: ''
+      });
+      save();
+      renderTable();
+      refreshDashboard();
+    });
+  }
+
+  const exampleBtn = document.getElementById('btnExample');
+  if (exampleBtn) {
+    exampleBtn.addEventListener('click', () => {
+      state.rows = [
+        { id: '1', type: 'income', name: 'Salary', value: 75000, mode: 'amount', reference: '', freq: 'yearly', category: 'Salary' },
+        { id: '2', type: 'income', name: 'Tips', value: 5, mode: 'amount', reference: '', freq: 'daily', category: 'Other Income' },
+        { id: '3', type: 'expense', name: 'Income Tax', value: 30, mode: 'percent', reference: 'Salary', freq: 'yearly', category: 'Other' },
+        { id: '4', type: 'expense', name: 'Electric', value: 300, mode: 'amount', reference: '', freq: 'monthly', category: 'Utilities' },
+        { id: '5', type: 'expense', name: 'Mortgage', value: 1800, mode: 'amount', reference: '', freq: 'monthly', category: 'Housing' },
+        { id: '6', type: 'expense', name: 'Internet', value: 60, mode: 'amount', reference: '', freq: 'monthly', category: 'Utilities' },
+        { id: '7', type: 'expense', name: 'Groceries', value: 500, mode: 'amount', reference: '', freq: 'monthly', category: 'Food' },
+        { id: '8', type: 'expense', name: 'Car Insurance', value: 1200, mode: 'amount', reference: '', freq: 'yearly', category: 'Transport' },
+        { id: '9', type: 'expense', name: 'Gas', value: 200, mode: 'amount', reference: '', freq: 'monthly', category: 'Transport' },
+        { id: '10', type: 'expense', name: 'Dining Out', value: 300, mode: 'amount', reference: '', freq: 'monthly', category: 'Food' }
+      ];
+      save();
+      renderTable();
+      refreshDashboard();
+    });
+  }
+}
+
+function setupImportExport() {
+  const exportBtn = document.getElementById('btnExport');
+  if (exportBtn) {
+    exportBtn.addEventListener('click', () => {
+      const blob = new Blob([JSON.stringify({ rows: state.rows }, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `budget-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  }
+
+  const importInput = document.getElementById('fileImport');
+  if (importInput) {
+    importInput.addEventListener('change', async e => {
+      const target = e.target;
+      const files = target && target.files ? target.files : null;
+      const file = files && files[0] ? files[0] : null;
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+        if (!data || !Array.isArray(data.rows)) throw new Error('Invalid file');
+        state.rows = data.rows;
+        save();
+        renderTable();
+        refreshDashboard();
+        alert('✅ Data imported successfully!');
+      } catch (err) {
+        console.error(err);
+        alert('❌ Import failed. Invalid file.');
+      } finally {
+        if (target) {
+          target.value = '';
+        }
+      }
+    });
+  }
+
+  const clearAllBtn = document.getElementById('btnClearAll');
+  if (clearAllBtn) {
+    clearAllBtn.addEventListener('click', () => {
+      if (!confirm('⚠️ Clear all entries? This cannot be undone.')) return;
+      state.rows = [];
+      save();
+      renderTable();
+      refreshDashboard();
+    });
+  }
 }
 
 function setupViewSwitcher() {
-  document.getElementById('viewSwitcher')?.addEventListener('click', e => {
+  const switcher = document.getElementById('viewSwitcher');
+  if (!switcher) return;
+
+  switcher.addEventListener('click', e => {
     const btn = e.target.closest('button[data-view]');
     if (!btn) return;
     state.view = btn.dataset.view;
