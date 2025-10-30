@@ -9,7 +9,11 @@ const ratioFormatter = new Intl.NumberFormat('en-US', {
 });
 
 function getSortedRows() {
-  const sorted = [...state.rows];
+  const rows = state.filterCategory
+    ? state.rows.filter(row => (row.category || '') === state.filterCategory)
+    : state.rows;
+
+  const sorted = [...rows];
 
   if (state.sortColumn) {
     sorted.sort((a, b) => {
@@ -28,6 +32,13 @@ function getSortedRows() {
   }
 
   return sorted;
+}
+
+function applyCategoryFilter(category) {
+  const normalized = category || '';
+  state.filterCategory = state.filterCategory === normalized ? '' : normalized;
+  renderTable();
+  refreshDashboard();
 }
 
 export function renderTable() {
@@ -199,6 +210,10 @@ function attachTableListeners() {
   const quickValue = document.getElementById('quickValue');
   const quickCategory = document.getElementById('quickCategory');
 
+  if (quickCategory) {
+    quickCategory.value = state.filterCategory || '';
+  }
+
   quickAddBtn?.addEventListener('click', () => {
     if (!quickName.value.trim()) {
       quickName.focus();
@@ -269,9 +284,20 @@ export function refreshDashboard() {
     categoryMonthlyTotals[row.category][typeKey] += monthlyVal;
   });
 
-  const normalizedCategoryTotals = Object.fromEntries(
-    Object.entries(categoryMonthlyTotals).sort(([a], [b]) => a.localeCompare(b))
-  );
+  const sortedCategoryEntries = Object.entries(categoryMonthlyTotals)
+    .sort(([a], [b]) => a.localeCompare(b));
+
+  const sortedCategoryTotals = {};
+  sortedCategoryEntries.forEach(([category, values]) => {
+    sortedCategoryTotals[category] = {
+      income: values?.income ?? 0,
+      expense: values?.expense ?? 0
+    };
+  });
+
+  const serializedCategoryTotals = JSON.stringify(sortedCategoryTotals);
+
+  const snapshotCategoryTotals = JSON.parse(serializedCategoryTotals);
 
   const now = new Date();
   const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -285,7 +311,8 @@ export function refreshDashboard() {
     month: monthKey,
     income: totals.inc,
     expense: totals.exp,
-    net: totals.net
+    net: totals.net,
+    categories: snapshotCategoryTotals
   };
 
   let historyChanged = false;
@@ -293,13 +320,17 @@ export function refreshDashboard() {
   if (!lastSnapshot || lastSnapshot.month !== monthKey) {
     state.history.push({ ...monthlySnapshot });
     historyChanged = true;
-  } else if (
-    lastSnapshot.income !== monthlySnapshot.income ||
-    lastSnapshot.expense !== monthlySnapshot.expense ||
-    lastSnapshot.net !== monthlySnapshot.net
-  ) {
-    Object.assign(lastSnapshot, monthlySnapshot);
-    historyChanged = true;
+  } else {
+    const totalsChanged = (
+      lastSnapshot.income !== monthlySnapshot.income ||
+      lastSnapshot.expense !== monthlySnapshot.expense ||
+      lastSnapshot.net !== monthlySnapshot.net
+    );
+    const categoriesChanged = JSON.stringify(lastSnapshot.categories || {}) !== serializedCategoryTotals;
+    if (totalsChanged || categoriesChanged) {
+      Object.assign(lastSnapshot, monthlySnapshot);
+      historyChanged = true;
+    }
   }
 
   if (historyChanged) {
@@ -307,9 +338,8 @@ export function refreshDashboard() {
   }
 
   const prevCategoryTotals = JSON.stringify(state.totalsByCategory || {});
-  const serializedCategoryTotals = JSON.stringify(normalizedCategoryTotals);
   if (prevCategoryTotals !== serializedCategoryTotals) {
-    state.totalsByCategory = normalizedCategoryTotals;
+    state.totalsByCategory = JSON.parse(serializedCategoryTotals);
     shouldSave = true;
   }
 
@@ -431,7 +461,7 @@ export function refreshDashboard() {
   }
 
   const totalsByCategory = Object.fromEntries(
-    Object.entries(normalizedCategoryTotals).map(([category, values]) => [
+    Object.entries(sortedCategoryTotals).map(([category, values]) => [
       category,
       {
         income: fromMonthly(values.income, view),
@@ -535,52 +565,117 @@ export function refreshDashboard() {
   bindCategoryKpi('Taxes', 'kpiTaxes', 'kpiTaxesPct');
   bindCategoryKpi('Savings', 'kpiSavings', 'kpiSavingsPct');
 
-  const topExpensesEl = document.getElementById('topExpenses');
-  if (topExpensesEl) {
-    const expensesWithValues = state.rows
-      .filter(row => row.type === 'expense')
-      .map(row => {
-        const monthlyAmount = results.get(row.id) || 0;
-        return {
-          id: row.id,
-          name: row.category || row.name || 'Uncategorized',
-          monthlyAmount,
-          viewAmount: fromMonthly(monthlyAmount, view)
-        };
-      })
-      .filter(item => item.monthlyAmount > 0);
+  const topExpensesBody = document.getElementById('topExpensesBody');
+  if (topExpensesBody) {
+    const historyCount = historyEntries.length;
+    const previousEntry = historyCount >= 2 ? historyEntries[historyCount - 2] : null;
+    const previousCategories = (previousEntry?.categories && typeof previousEntry.categories === 'object')
+      ? previousEntry.categories
+      : {};
 
-    if (expensesWithValues.length === 0) {
-      topExpensesEl.innerHTML = `
-        <p class="text-sm text-slate-400">No expenses recorded yet</p>
+    const allCategories = new Set([
+      ...Object.keys(sortedCategoryTotals),
+      ...Object.keys(previousCategories)
+    ]);
+
+    const EPSILON = 0.005;
+    const categoryChanges = Array.from(allCategories).map(category => {
+      const current = sortedCategoryTotals[category] || { income: 0, expense: 0 };
+      const previous = previousCategories[category] || { income: 0, expense: 0 };
+      const currentExpense = fromMonthly(current.expense || 0, view);
+      const previousExpense = fromMonthly(previous.expense || 0, view);
+      const deltaAmount = currentExpense - previousExpense;
+      const magnitude = Math.abs(deltaAmount);
+      if (magnitude < EPSILON) {
+        return null;
+      }
+
+      const pctChange = Math.abs(previousExpense) > EPSILON
+        ? deltaAmount / Math.abs(previousExpense)
+        : (currentExpense === 0 ? 0 : null);
+
+      return {
+        category,
+        deltaAmount,
+        pctChange,
+        magnitude,
+        currentExpense,
+        previousExpense
+      };
+    }).filter(Boolean);
+
+    if (!categoryChanges.length) {
+      topExpensesBody.innerHTML = `
+        <tr>
+          <td colspan="4" class="py-4 text-center text-sm text-slate-400">
+            No expense changes yet
+          </td>
+        </tr>
       `;
     } else {
-      const topExpenses = expensesWithValues
-        .sort((a, b) => b.monthlyAmount - a.monthlyAmount)
+      const topChanges = categoryChanges
+        .sort((a, b) => {
+          if (b.magnitude !== a.magnitude) {
+            return b.magnitude - a.magnitude;
+          }
+          return a.category.localeCompare(b.category);
+        })
         .slice(0, 5);
 
-      const totalExpenses = totals.exp;
-      topExpensesEl.innerHTML = topExpenses.map(expense => {
-        const share = totalExpenses > 0 ? (expense.monthlyAmount / totalExpenses) : 0;
-        const sharePct = Math.min(1, Math.max(0, share));
-        const shareLabel = fmtPct.format(sharePct);
-        const width = `${(sharePct * 100).toFixed(0)}%`;
+      topExpensesBody.innerHTML = topChanges.map(change => {
+        const isIncrease = change.deltaAmount > 0;
+        const symbol = isIncrease ? '▲' : '▼';
+        const accentClass = isIncrease ? 'text-red-400' : 'text-emerald-400';
+        const amountPrefix = isIncrease ? '+' : '−';
+        const amountClass = isIncrease ? 'text-red-300' : 'text-emerald-300';
+        const amountValue = fmtDecimal.format(Math.abs(change.deltaAmount));
+
+        let pctDisplay = '—';
+        let pctClass = 'text-slate-400';
+        if (change.pctChange !== null) {
+          if (change.pctChange === 0) {
+            pctDisplay = fmtPct.format(0);
+            pctClass = 'text-slate-300';
+          } else {
+            const pctPrefix = change.pctChange > 0 ? '+' : '−';
+            pctDisplay = `${pctPrefix}${fmtPct.format(Math.abs(change.pctChange))}`;
+            pctClass = change.pctChange > 0 ? 'text-red-300' : 'text-emerald-300';
+          }
+        }
+
+        const previousLabel = fmtDecimal.format(change.previousExpense);
+        const currentLabel = fmtDecimal.format(change.currentExpense);
+        const isActive = state.filterCategory === change.category;
+        const rowClasses = [
+          'group',
+          'cursor-pointer',
+          'transition-colors',
+          isActive ? 'bg-slate-700/60' : 'hover:bg-slate-700/40'
+        ].join(' ');
+
         return `
-          <div class="space-y-1">
-            <div class="flex items-center justify-between text-sm">
-              <span class="font-medium text-white">${expense.name}</span>
-              <span class="text-white">${fmt.format(expense.viewAmount)}</span>
-            </div>
-            <div class="flex items-center justify-between text-xs text-slate-400">
-              <span>Share of expenses</span>
-              <span>${shareLabel}</span>
-            </div>
-            <div class="h-1.5 bg-slate-700/60 rounded-full overflow-hidden">
-              <div class="h-full bg-red-500" style="width: ${width};"></div>
-            </div>
-          </div>
+          <tr class="${rowClasses}" data-category="${change.category}">
+            <td class="w-10 py-3 pl-3 pr-2">
+              <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-800/80 ${accentClass}">
+                ${symbol}
+              </span>
+            </td>
+            <td class="py-3 pr-3">
+              <div class="text-sm font-medium text-white">${change.category}</div>
+              <div class="text-xs text-slate-400">${previousLabel} → ${currentLabel}</div>
+            </td>
+            <td class="py-3 pr-3 text-right font-medium ${amountClass}">${amountPrefix}${amountValue}</td>
+            <td class="py-3 pr-4 text-right ${pctClass}">${pctDisplay}</td>
+          </tr>
         `;
       }).join('');
+
+      topExpensesBody.querySelectorAll('tr[data-category]').forEach(row => {
+        row.addEventListener('click', () => {
+          const { category } = row.dataset;
+          applyCategoryFilter(category || '');
+        });
+      });
     }
   }
 

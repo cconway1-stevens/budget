@@ -286,8 +286,24 @@
             <h3 class="text-lg font-bold text-white">Top Expenses</h3>
             <i data-lucide="arrow-down-wide-narrow" class="w-5 h-5 text-slate-400"></i>
           </div>
-          <div id="topExpenses" class="space-y-3">
-            <!-- Populated by JS -->
+          <div class="overflow-hidden rounded-xl border border-slate-700/60">
+            <table class="w-full text-sm text-slate-200" id="topExpensesTable">
+              <thead class="bg-slate-800/60 text-xs uppercase tracking-wide text-slate-400">
+                <tr>
+                  <th class="px-3 py-2 text-left font-medium">Trend</th>
+                  <th class="px-3 py-2 text-left font-medium">Category</th>
+                  <th class="px-3 py-2 text-right font-medium">Δ Amount</th>
+                  <th class="px-3 py-2 text-right font-medium">Δ %</th>
+                </tr>
+              </thead>
+              <tbody id="topExpensesBody" class="divide-y divide-slate-800/70">
+                <tr>
+                  <td colspan="4" class="py-4 text-center text-sm text-slate-500">
+                    Waiting for expense history…
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
 

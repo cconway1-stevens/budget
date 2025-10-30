@@ -24,6 +24,9 @@ export function load() {
       if (typeof state.netGoal !== 'number' || Number.isNaN(state.netGoal)) {
         state.netGoal = 0;
       }
+      if (typeof state.filterCategory !== 'string') {
+        state.filterCategory = '';
+      }
     }
   } catch (e) {
     console.error('Load failed:', e);
