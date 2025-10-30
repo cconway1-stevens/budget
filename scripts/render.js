@@ -8,6 +8,192 @@ const ratioFormatter = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 2
 });
 
+const VALID_DASHBOARD_TYPES = ['all', 'income', 'expense', 'investment'];
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function ensureDashboardFilters() {
+  if (!state.dashboardFilters || typeof state.dashboardFilters !== 'object') {
+    state.dashboardFilters = { category: 'all', type: 'all' };
+  }
+
+  if (typeof state.dashboardFilters.category !== 'string' || !state.dashboardFilters.category) {
+    state.dashboardFilters.category = 'all';
+  } else if (state.dashboardFilters.category.toLowerCase() === 'all') {
+    state.dashboardFilters.category = 'all';
+  } else if (Array.isArray(state.categories) && !state.categories.includes(state.dashboardFilters.category)) {
+    state.dashboardFilters.category = 'all';
+  }
+
+  if (typeof state.dashboardFilters.type !== 'string' || !state.dashboardFilters.type) {
+    state.dashboardFilters.type = 'all';
+  }
+  const normalizedType = state.dashboardFilters.type.toLowerCase();
+  state.dashboardFilters.type = VALID_DASHBOARD_TYPES.includes(normalizedType)
+    ? normalizedType
+    : 'all';
+
+  return state.dashboardFilters;
+}
+
+function matchesDashboardFilters(row, filters) {
+  if (!row) return false;
+  const categoryFilter = filters.category;
+  const typeFilter = filters.type;
+
+  const categoryMatch = categoryFilter === 'all' || (row.category || '') === categoryFilter;
+  if (!categoryMatch) return false;
+
+  if (typeFilter === 'all') return true;
+  return (row.type || '').toLowerCase() === typeFilter;
+}
+
+function computeTotalsForRows(rows, results) {
+  return rows.reduce((acc, row) => {
+    if (!row) return acc;
+    const monthlyVal = results.get(row.id) || 0;
+    const type = (row.type || '').toLowerCase();
+    if (type === 'expense') {
+      acc.exp += monthlyVal;
+    } else if (type === 'investment') {
+      acc.investment += monthlyVal;
+    } else {
+      acc.inc += monthlyVal;
+    }
+    return acc;
+  }, { inc: 0, exp: 0, investment: 0 });
+}
+
+function aggregateCategoryTotals(rows, results) {
+  const totals = {};
+  rows.forEach(row => {
+    if (!row || !row.category) return;
+    const monthlyVal = results.get(row.id) || 0;
+    const type = (row.type || '').toLowerCase();
+    if (!totals[row.category]) {
+      totals[row.category] = { income: 0, expense: 0, investment: 0 };
+    }
+    if (type === 'expense') {
+      totals[row.category].expense += monthlyVal;
+    } else if (type === 'investment') {
+      totals[row.category].investment += monthlyVal;
+    } else {
+      totals[row.category].income += monthlyVal;
+    }
+  });
+  return totals;
+}
+
+function sortCategoryTotals(totals) {
+  const sortedEntries = Object.entries(totals || {})
+    .sort(([a], [b]) => a.localeCompare(b));
+  const sortedTotals = {};
+  sortedEntries.forEach(([category, values]) => {
+    sortedTotals[category] = {
+      income: values && values.income != null ? values.income : 0,
+      expense: values && values.expense != null ? values.expense : 0,
+      investment: values && values.investment != null ? values.investment : 0
+    };
+  });
+  return sortedTotals;
+}
+
+function deriveDisplayTotals(totals, filterType = 'all') {
+  const inc = Number(totals && totals.inc) || 0;
+  const expense = Number(totals && totals.exp) || 0;
+  const investment = Number(totals && totals.investment) || 0;
+  const type = filterType || 'all';
+
+  if (type === 'income') {
+    return { income: inc, expense: 0, net: inc };
+  }
+  if (type === 'expense') {
+    return { income: 0, expense, net: -expense };
+  }
+  if (type === 'investment') {
+    return { income: 0, expense: investment, net: -investment };
+  }
+
+  const combinedExpense = expense + investment;
+  return {
+    income: inc,
+    expense: combinedExpense,
+    net: inc - combinedExpense
+  };
+}
+
+function computeHistoryTotals(entry, filters) {
+  if (!entry || typeof entry !== 'object') {
+    return { inc: 0, exp: 0, investment: 0 };
+  }
+
+  const fallback = {
+    inc: Number(entry.income) || 0,
+    exp: Number(entry.expense) || 0,
+    investment: Number(entry.investment) || 0
+  };
+
+  const categoryFilter = filters && filters.category ? filters.category : 'all';
+  if (categoryFilter === 'all') {
+    return fallback;
+  }
+
+  const categories = entry.categories && typeof entry.categories === 'object'
+    ? entry.categories
+    : {};
+  const selected = categories[categoryFilter];
+  if (!selected) {
+    return { inc: 0, exp: 0, investment: 0 };
+  }
+
+  return {
+    inc: Number(selected.income) || 0,
+    exp: Number(selected.expense) || 0,
+    investment: Number(selected.investment) || 0
+  };
+}
+
+function renderDashboardFilterChips(filters = ensureDashboardFilters()) {
+  const categoryContainer = document.getElementById('dashboardFilterCategories');
+  if (categoryContainer) {
+    const categories = Array.isArray(state.categories) ? state.categories : [];
+    const activeCategory = filters.category || 'all';
+    const chips = ['all', ...categories];
+    categoryContainer.innerHTML = chips.map(value => {
+      const label = value === 'all' ? 'All' : value;
+      const isActive = value === 'all'
+        ? activeCategory === 'all'
+        : activeCategory === value;
+      const classList = ['pill', isActive ? 'pill-active' : 'pill-soft'];
+      return `<button class="${classList.join(' ')}" data-filter-type="category" data-value="${escapeHtml(value)}" aria-pressed="${isActive}">${escapeHtml(label)}</button>`;
+    }).join('');
+  }
+
+  const typeContainer = document.getElementById('dashboardFilterTypes');
+  if (typeContainer) {
+    const activeType = filters.type || 'all';
+    const options = [
+      { value: 'all', label: 'All' },
+      { value: 'income', label: 'Income' },
+      { value: 'expense', label: 'Expense' },
+      { value: 'investment', label: 'Investment' }
+    ];
+
+    typeContainer.innerHTML = options.map(option => {
+      const isActive = activeType === option.value;
+      const classList = ['pill', isActive ? 'pill-active' : 'pill-soft'];
+      return `<button class="${classList.join(' ')}" data-filter-type="type" data-value="${option.value}" aria-pressed="${isActive}">${option.label}</button>`;
+    }).join('');
+  }
+}
+
 function getSortedRows() {
   const rows = state.filterCategory
     ? state.rows.filter(row => (row.category || '') === state.filterCategory)
@@ -277,32 +463,27 @@ export function refreshDashboard() {
     btn.classList.toggle('pill-soft', btn.dataset.view !== view);
   });
 
-  const { totals, results } = calcMonthlyValues();
-  const categoryMonthlyTotals = {};
-  state.rows.forEach(row => {
-    if (!row || !row.category) return;
-    const monthlyVal = results.get(row.id) || 0;
-    const typeKey = row.type === 'income' ? 'income' : 'expense';
-    if (!categoryMonthlyTotals[row.category]) {
-      categoryMonthlyTotals[row.category] = { income: 0, expense: 0 };
-    }
-    categoryMonthlyTotals[row.category][typeKey] += monthlyVal;
-  });
+  const filters = ensureDashboardFilters();
+  renderDashboardFilterChips(filters);
 
-  const sortedCategoryEntries = Object.entries(categoryMonthlyTotals)
-    .sort(([a], [b]) => a.localeCompare(b));
+  const { results } = calcMonthlyValues();
+  const allRows = Array.isArray(state.rows) ? state.rows : [];
+  const filteredRows = allRows.filter(row => matchesDashboardFilters(row, filters));
 
-  const sortedCategoryTotals = {};
-  sortedCategoryEntries.forEach(([category, values]) => {
-    sortedCategoryTotals[category] = {
-      income: values && values.income != null ? values.income : 0,
-      expense: values && values.expense != null ? values.expense : 0
-    };
-  });
+  const globalTotals = computeTotalsForRows(allRows, results);
+  const filteredTotalsBase = computeTotalsForRows(filteredRows, results);
+  const displayTotals = deriveDisplayTotals(filteredTotalsBase, filters.type);
 
-  const serializedCategoryTotals = JSON.stringify(sortedCategoryTotals);
+  const globalCategoryTotals = aggregateCategoryTotals(allRows, results);
+  const filteredCategoryTotals = aggregateCategoryTotals(filteredRows, results);
 
-  const snapshotCategoryTotals = JSON.parse(serializedCategoryTotals);
+  const sortedGlobalCategoryTotals = sortCategoryTotals(globalCategoryTotals);
+  const sortedFilteredCategoryTotals = sortCategoryTotals(filteredCategoryTotals);
+
+  const serializedFilteredCategoryTotals = JSON.stringify(sortedFilteredCategoryTotals);
+  const serializedGlobalCategoryTotals = JSON.stringify(sortedGlobalCategoryTotals);
+
+  const snapshotCategoryTotals = JSON.parse(serializedGlobalCategoryTotals || '{}');
 
   const now = new Date();
   const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -312,11 +493,13 @@ export function refreshDashboard() {
   }
 
   const lastSnapshot = state.history[state.history.length - 1];
+  const globalDisplayTotals = deriveDisplayTotals(globalTotals, 'all');
   const monthlySnapshot = {
     month: monthKey,
-    income: totals.inc,
-    expense: totals.exp,
-    net: totals.net,
+    income: globalTotals.inc,
+    expense: globalTotals.exp,
+    investment: globalTotals.investment,
+    net: globalDisplayTotals.net,
     categories: snapshotCategoryTotals
   };
 
@@ -329,9 +512,10 @@ export function refreshDashboard() {
     const totalsChanged = (
       lastSnapshot.income !== monthlySnapshot.income ||
       lastSnapshot.expense !== monthlySnapshot.expense ||
-      lastSnapshot.net !== monthlySnapshot.net
+      lastSnapshot.net !== monthlySnapshot.net ||
+      lastSnapshot.investment !== monthlySnapshot.investment
     );
-    const categoriesChanged = JSON.stringify(lastSnapshot.categories || {}) !== serializedCategoryTotals;
+    const categoriesChanged = JSON.stringify(lastSnapshot.categories || {}) !== serializedGlobalCategoryTotals;
     if (totalsChanged || categoriesChanged) {
       Object.assign(lastSnapshot, monthlySnapshot);
       historyChanged = true;
@@ -343,15 +527,15 @@ export function refreshDashboard() {
   }
 
   const prevCategoryTotals = JSON.stringify(state.totalsByCategory || {});
-  if (prevCategoryTotals !== serializedCategoryTotals) {
-    state.totalsByCategory = JSON.parse(serializedCategoryTotals);
+  if (prevCategoryTotals !== serializedFilteredCategoryTotals) {
+    state.totalsByCategory = JSON.parse(serializedFilteredCategoryTotals || '{}');
     shouldSave = true;
   }
 
-  const incV = fromMonthly(totals.inc, view);
-  const expV = fromMonthly(totals.exp, view);
-  const netV = fromMonthly(totals.net, view);
-  const savingsRate = totals.inc > 0 ? (totals.net / totals.inc) : 0;
+  const incV = fromMonthly(displayTotals.income, view);
+  const expV = fromMonthly(displayTotals.expense, view);
+  const netV = fromMonthly(displayTotals.net, view);
+  const savingsRate = displayTotals.income > 0 ? (displayTotals.net / displayTotals.income) : 0;
 
   const applyMetricColor = (el, value, positiveIsGood = true) => {
     if (!el) return;
@@ -385,12 +569,11 @@ export function refreshDashboard() {
       label = 'Current';
     }
 
-    const incomeVal = fromMonthly((entry && entry.income) || 0, view);
-    const expenseVal = fromMonthly((entry && entry.expense) || 0, view);
-    const netSource = entry && entry.net != null
-      ? entry.net
-      : (((entry && entry.income) || 0) - ((entry && entry.expense) || 0));
-    const netVal = fromMonthly(netSource, view);
+    const historyTotals = computeHistoryTotals(entry, filters);
+    const displayHistoryTotals = deriveDisplayTotals(historyTotals, filters.type);
+    const incomeVal = fromMonthly(displayHistoryTotals.income, view);
+    const expenseVal = fromMonthly(displayHistoryTotals.expense, view);
+    const netVal = fromMonthly(displayHistoryTotals.net, view);
 
     return {
       label,
@@ -441,11 +624,17 @@ export function refreshDashboard() {
   const goalValue = Number.isFinite(rawGoal) ? fromMonthly(rawGoal, view) : null;
 
   const rankedCategoryTotals = Object.entries(state.totalsByCategory || {})
-    .map(([category, values]) => ({
-      category,
-      income: Math.max(values && values.income != null ? values.income : 0, 0),
-      expense: Math.max(values && values.expense != null ? values.expense : 0, 0)
-    }))
+    .map(([category, values]) => {
+      const incomeValue = Math.max(values && values.income != null ? values.income : 0, 0);
+      const expenseValue = Math.max(values && values.expense != null ? values.expense : 0, 0);
+      const investmentValue = Math.max(values && values.investment != null ? values.investment : 0, 0);
+      return {
+        category,
+        income: incomeValue,
+        expense: expenseValue + investmentValue,
+        investment: investmentValue
+      };
+    })
     .filter(entry => entry.income > 0 || entry.expense > 0)
     .sort((a, b) => {
       const expenseDiff = (b.expense || 0) - (a.expense || 0);
@@ -460,8 +649,9 @@ export function refreshDashboard() {
     const aggregate = overflowTotals.reduce((acc, entry) => {
       acc.income += entry.income;
       acc.expense += entry.expense;
+      acc.investment += entry.investment || 0;
       return acc;
-    }, { category: 'Other', income: 0, expense: 0 });
+    }, { category: 'Other', income: 0, expense: 0, investment: 0 });
 
     if (aggregate.expense > 0 || aggregate.income > 0) {
       topRankedTotals.push(aggregate);
@@ -475,13 +665,19 @@ export function refreshDashboard() {
   }
 
   const totalsByCategory = Object.fromEntries(
-    Object.entries(sortedCategoryTotals).map(([category, values]) => [
-      category,
-      {
-        income: fromMonthly(values.income, view),
-        expense: fromMonthly(values.expense, view)
-      }
-    ])
+    Object.entries(sortedFilteredCategoryTotals).map(([category, values]) => {
+      const incomeMonthly = values && values.income != null ? values.income : 0;
+      const expenseMonthly = values && values.expense != null ? values.expense : 0;
+      const investmentMonthly = values && values.investment != null ? values.investment : 0;
+      return [
+        category,
+        {
+          income: fromMonthly(incomeMonthly, view),
+          expense: fromMonthly(expenseMonthly + investmentMonthly, view),
+          investment: fromMonthly(investmentMonthly, view)
+        }
+      ];
+    })
   );
 
   const bindCategoryKpi = (category, amountId, pctId) => {
@@ -551,8 +747,8 @@ export function refreshDashboard() {
   document.getElementById('statEntries').textContent = state.rows.length;
   document.getElementById('statRecurring').textContent = state.rows.filter(r => r.freq !== 'monthly').length;
 
-  const dailyExpenses = fromMonthly(totals.exp, 'daily');
-  const annualExpenses = fromMonthly(totals.exp, 'yearly');
+  const dailyExpenses = fromMonthly(displayTotals.expense, 'daily');
+  const annualExpenses = fromMonthly(displayTotals.expense, 'yearly');
   document.getElementById('statAvgDaily').textContent = fmt.format(dailyExpenses);
 
   const annualExpensesEl = document.getElementById('statAnnualExpenses');
@@ -563,7 +759,7 @@ export function refreshDashboard() {
   const annualContextEl = document.getElementById('statAnnualContext');
   if (annualContextEl) {
     if (annualExpenses > 0) {
-      const annualIncome = fromMonthly(totals.inc, 'yearly');
+        const annualIncome = fromMonthly(displayTotals.income, 'yearly');
       if (annualIncome > 0) {
         const pctOfIncome = annualExpenses / annualIncome;
         annualContextEl.textContent = `${fmtPct.format(pctOfIncome)} of annual income`;
@@ -588,16 +784,16 @@ export function refreshDashboard() {
       : {};
 
     const allCategories = new Set([
-      ...Object.keys(sortedCategoryTotals),
+      ...Object.keys(sortedFilteredCategoryTotals),
       ...Object.keys(previousCategories)
     ]);
 
     const EPSILON = 0.005;
     const categoryChanges = Array.from(allCategories).map(category => {
-      const current = sortedCategoryTotals[category] || { income: 0, expense: 0 };
-      const previous = previousCategories[category] || { income: 0, expense: 0 };
-      const currentExpense = fromMonthly(current.expense || 0, view);
-      const previousExpense = fromMonthly(previous.expense || 0, view);
+      const current = sortedFilteredCategoryTotals[category] || { income: 0, expense: 0, investment: 0 };
+      const previous = previousCategories[category] || { income: 0, expense: 0, investment: 0 };
+      const currentExpense = fromMonthly((current.expense || 0) + (current.investment || 0), view);
+      const previousExpense = fromMonthly((previous.expense || 0) + (previous.investment || 0), view);
       const deltaAmount = currentExpense - previousExpense;
       const magnitude = Math.abs(deltaAmount);
       if (magnitude < EPSILON) {
@@ -1128,16 +1324,61 @@ function setupImportExport() {
 
 function setupViewSwitcher() {
   const switcher = document.getElementById('viewSwitcher');
-  if (!switcher) return;
+  if (switcher && !switcher.dataset.listenerAttached) {
+    switcher.dataset.listenerAttached = 'true';
+    switcher.addEventListener('click', e => {
+      const btn = e.target.closest('button[data-view]');
+      if (!btn) return;
+      state.view = btn.dataset.view;
+      save();
+      refreshDashboard();
+      const entryPage = document.getElementById('pageEntry');
+      if (entryPage && !entryPage.classList.contains('hidden')) {
+        renderTable();
+      }
+    });
+  }
 
-  switcher.addEventListener('click', e => {
-    const btn = e.target.closest('button[data-view]');
-    if (!btn) return;
-    state.view = btn.dataset.view;
-    save();
-    refreshDashboard();
-    if (!document.getElementById('pageEntry').classList.contains('hidden')) {
-      renderTable();
-    }
-  });
+  const filterRow = document.getElementById('dashboardFilterRow');
+  if (filterRow && !filterRow.dataset.listenerAttached) {
+    filterRow.dataset.listenerAttached = 'true';
+    filterRow.addEventListener('click', e => {
+      const btn = e.target.closest('button[data-filter-type]');
+      if (!btn) return;
+      const filters = ensureDashboardFilters();
+      const filterType = btn.dataset.filterType;
+      const rawValue = btn.dataset.value || 'all';
+      let changed = false;
+
+      if (filterType === 'category') {
+        const nextCategory = rawValue === 'all' ? 'all' : rawValue;
+        if (filters.category === nextCategory) {
+          if (nextCategory !== 'all') {
+            filters.category = 'all';
+            changed = true;
+          }
+        } else {
+          filters.category = nextCategory;
+          changed = true;
+        }
+      } else if (filterType === 'type') {
+        const normalized = (rawValue || '').toLowerCase();
+        const nextType = VALID_DASHBOARD_TYPES.includes(normalized) ? normalized : 'all';
+        if (filters.type === nextType) {
+          if (nextType !== 'all') {
+            filters.type = 'all';
+            changed = true;
+          }
+        } else {
+          filters.type = nextType;
+          changed = true;
+        }
+      }
+
+      if (changed) {
+        save();
+        refreshDashboard();
+      }
+    });
+  }
 }

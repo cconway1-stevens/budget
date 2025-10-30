@@ -27,6 +27,23 @@ export function load() {
       if (typeof state.filterCategory !== 'string') {
         state.filterCategory = '';
       }
+      if (!state.dashboardFilters || typeof state.dashboardFilters !== 'object') {
+        state.dashboardFilters = { category: 'all', type: 'all' };
+      } else {
+        if (typeof state.dashboardFilters.category !== 'string' || !state.dashboardFilters.category) {
+          state.dashboardFilters.category = 'all';
+        }
+        if (state.dashboardFilters.category.toLowerCase() === 'all') {
+          state.dashboardFilters.category = 'all';
+        }
+        if (typeof state.dashboardFilters.type !== 'string' || !state.dashboardFilters.type) {
+          state.dashboardFilters.type = 'all';
+        }
+        const normalizedType = state.dashboardFilters.type.toLowerCase();
+        state.dashboardFilters.type = ['all', 'income', 'expense', 'investment'].includes(normalizedType)
+          ? normalizedType
+          : 'all';
+      }
     }
   } catch (e) {
     console.error('Load failed:', e);
