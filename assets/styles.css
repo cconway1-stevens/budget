@@ -918,6 +918,38 @@ input::placeholder {
   flex: 1 1 auto;
 }
 
+.chart-breakdown-ranked {
+  padding: 0.5rem 0.75rem 0.75rem 0;
+  gap: 0.5rem;
+}
+
+.chart-breakdown-ranked canvas {
+  max-height: 420px;
+}
+
+.legend-narrow {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.6rem;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  letter-spacing: 0.03em;
+}
+
+.legend-narrow span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.legend-narrow .legend-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 9999px;
+  background: currentColor;
+  opacity: 0.75;
+}
+
 .legend-compact {
   display: flex;
   flex-wrap: wrap;

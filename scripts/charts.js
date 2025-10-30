@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { fmt, fmtPct } from './formatting.js';
+import { fmt, fmtPct, fromMonthly } from './formatting.js';
 
 let chartTrend = null;
 let chartBreakdown = null;
@@ -149,14 +149,16 @@ export function updateCharts(trendSeries = {}, goalValue) {
 
   const breakdownCanvas = document.getElementById('chartBreakdown');
   const breakdownContainer = breakdownCanvas?.parentElement;
-  breakdownContainer?.classList.add('chart-breakdown-container');
+  breakdownContainer?.classList.add('chart-breakdown-container', 'chart-breakdown-ranked');
 
-  const categoryBreakdown = Array.isArray(state.categoryBreakdown)
+  const rankedCategoryTotals = Array.isArray(state.categoryBreakdown)
     ? state.categoryBreakdown
     : [];
 
-  const breakdownLabels = categoryBreakdown.map(entry => entry.category);
-  const breakdownValues = categoryBreakdown.map(entry => Math.max(entry?.expense ?? entry?.amount ?? 0, 0));
+  const viewForBreakdown = state.view || 'monthly';
+  const breakdownLabels = rankedCategoryTotals.map(entry => entry.category);
+  const monthlyExpenses = rankedCategoryTotals.map(entry => Math.max(entry?.expense ?? entry?.amount ?? 0, 0));
+  const breakdownValues = monthlyExpenses.map(amount => fromMonthly(amount, viewForBreakdown));
   const totalBreakdownValue = breakdownValues.reduce((sum, val) => sum + val, 0);
 
   let runningTotal = 0;
@@ -196,7 +198,8 @@ export function updateCharts(trendSeries = {}, goalValue) {
 
   const trimLabel = label => {
     if (typeof label !== 'string') return label;
-    return label.length > 26 ? `${label.slice(0, 23)}…` : label;
+    const maxLength = 22;
+    return label.length > maxLength ? `${label.slice(0, maxLength - 1)}…` : label;
   };
 
   const barDataset = {

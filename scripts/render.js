@@ -380,6 +380,40 @@ export function refreshDashboard() {
 
   const goalValue = fromMonthly(state.netGoal ?? 0, view);
 
+  const rankedCategoryTotals = Object.entries(state.totalsByCategory || {})
+    .map(([category, values]) => ({
+      category,
+      income: Math.max(values?.income ?? 0, 0),
+      expense: Math.max(values?.expense ?? 0, 0)
+    }))
+    .filter(entry => entry.income > 0 || entry.expense > 0)
+    .sort((a, b) => {
+      const expenseDiff = (b.expense || 0) - (a.expense || 0);
+      if (expenseDiff !== 0) return expenseDiff;
+      return a.category.localeCompare(b.category);
+    });
+
+  const topRankedTotals = rankedCategoryTotals.slice(0, 8);
+  const overflowTotals = rankedCategoryTotals.slice(8);
+
+  if (overflowTotals.length > 0) {
+    const aggregate = overflowTotals.reduce((acc, entry) => {
+      acc.income += entry.income;
+      acc.expense += entry.expense;
+      return acc;
+    }, { category: 'Other', income: 0, expense: 0 });
+
+    if (aggregate.expense > 0 || aggregate.income > 0) {
+      topRankedTotals.push(aggregate);
+    }
+  }
+
+  const serializedBreakdown = JSON.stringify(topRankedTotals);
+  if (JSON.stringify(state.categoryBreakdown || []) !== serializedBreakdown) {
+    state.categoryBreakdown = topRankedTotals.map(entry => ({ ...entry }));
+    shouldSave = true;
+  }
+
   const totalsByCategory = Object.fromEntries(
     Object.entries(normalizedCategoryTotals).map(([category, values]) => [
       category,
@@ -389,40 +423,6 @@ export function refreshDashboard() {
       }
     ])
   );
-
-  const categoryBreakdownEntries = Object.entries(totalsByCategory)
-    .map(([category, values]) => ({
-      category,
-      income: Math.max(values.income ?? 0, 0),
-      expense: Math.max(values.expense ?? 0, 0)
-    }))
-    .filter(entry => entry.expense > 0);
-
-  categoryBreakdownEntries.sort((a, b) => {
-    const expenseDiff = (b.expense || 0) - (a.expense || 0);
-    if (expenseDiff !== 0) return expenseDiff;
-    return a.category.localeCompare(b.category);
-  });
-
-  const topCategoryEntries = categoryBreakdownEntries.slice(0, 8);
-  const remainingEntries = categoryBreakdownEntries.slice(8);
-
-  if (remainingEntries.length > 0) {
-    const aggregate = remainingEntries.reduce((acc, entry) => {
-      acc.income += entry.income;
-      acc.expense += entry.expense;
-      return acc;
-    }, { category: 'Other', income: 0, expense: 0 });
-    if (aggregate.expense > 0) {
-      topCategoryEntries.push(aggregate);
-    }
-  }
-
-  const serializedBreakdown = JSON.stringify(topCategoryEntries);
-  if (JSON.stringify(state.categoryBreakdown || []) !== serializedBreakdown) {
-    state.categoryBreakdown = topCategoryEntries.map(entry => ({ ...entry }));
-    shouldSave = true;
-  }
 
   const bindCategoryKpi = (category, amountId, pctId) => {
     const amountEl = document.getElementById(amountId);
