@@ -1,4 +1,4 @@
-import { state } from './state.js';
+import { state, normalizeRows } from './state.js';
 
 const STORAGE_KEY = 'financialAnalyticsPro';
 
@@ -15,6 +15,7 @@ export function load() {
     const data = localStorage.getItem(STORAGE_KEY);
     if (data) {
       Object.assign(state, JSON.parse(data));
+      state.rows = normalizeRows(state.rows);
       if (!Array.isArray(state.categories) || !state.categories.length) {
         state.categories = [...state.defaultCategories];
       }
