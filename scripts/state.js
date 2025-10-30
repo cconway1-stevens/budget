@@ -126,7 +126,29 @@ export function normalizeRows(rows) {
     .filter(Boolean);
 }
 
+// Memoization cache for calcMonthlyValues
+let cachedCalcResults = null;
+let lastRowsHash = null;
+
+function hashRows(rows) {
+  // Simple hash based on row count and row IDs/values
+  if (!Array.isArray(rows) || rows.length === 0) return 'empty';
+  return rows.map(r => `${r.id}:${r.value}:${r.mode}:${r.freq}:${r.reference}`).join('|');
+}
+
+// Call this whenever rows are modified to invalidate the cache
+export function invalidateCache() {
+  cachedCalcResults = null;
+  lastRowsHash = null;
+}
+
 export function calcMonthlyValues() {
+  // Check if we can use cached results
+  const currentHash = hashRows(state.rows);
+  if (cachedCalcResults && lastRowsHash === currentHash) {
+    return cachedCalcResults;
+  }
+
   const results = new Map();
   const visited = new Set();
   const nameToId = new Map();
@@ -187,7 +209,13 @@ export function calcMonthlyValues() {
 
   // Net = income - true expenses (excluding wealth building allocations)
   totals.net = totals.inc - totals.exp;
-  return { totals, results };
+
+  // Cache the results for next time
+  const result = { totals, results };
+  cachedCalcResults = result;
+  lastRowsHash = currentHash;
+
+  return result;
 }
 
 // Account Management Functions
@@ -215,6 +243,93 @@ export function getAccountByName(accountName) {
   return state.accounts.find(acc =>
     (acc.name || '').toLowerCase().trim() === normalized
   );
+}
+
+export function updateAccount(accountId, updates) {
+  const account = getAccountById(accountId);
+  if (!account) {
+    return { success: false, error: 'Account not found' };
+  }
+
+  // Validate updates
+  if (updates.name !== undefined) {
+    const trimmedName = String(updates.name).trim();
+    if (!trimmedName) {
+      return { success: false, error: 'Account name cannot be empty' };
+    }
+    // Check for duplicate names (excluding current account)
+    const duplicate = state.accounts.find(acc =>
+      acc.id !== accountId &&
+      acc.name.toLowerCase().trim() === trimmedName.toLowerCase()
+    );
+    if (duplicate) {
+      return { success: false, error: 'Account name already exists' };
+    }
+    account.name = trimmedName;
+  }
+
+  if (updates.type !== undefined) {
+    const validTypes = ['retirement', 'investment', 'savings', 'liquid'];
+    if (!validTypes.includes(updates.type)) {
+      return { success: false, error: 'Invalid account type' };
+    }
+    account.type = updates.type;
+  }
+
+  if (updates.balance !== undefined) {
+    const balance = Number(updates.balance);
+    if (!Number.isFinite(balance)) {
+      return { success: false, error: 'Invalid balance amount' };
+    }
+    account.balance = balance;
+  }
+
+  if (updates.expectedReturn !== undefined) {
+    const returnRate = Number(updates.expectedReturn);
+    if (!Number.isFinite(returnRate)) {
+      return { success: false, error: 'Invalid expected return' };
+    }
+    account.expectedReturn = returnRate;
+  }
+
+  if (updates.isActive !== undefined) {
+    account.isActive = Boolean(updates.isActive);
+  }
+
+  return { success: true, account };
+}
+
+export function deleteAccount(accountId) {
+  const index = state.accounts.findIndex(acc => acc.id === accountId);
+  if (index === -1) {
+    return { success: false, error: 'Account not found' };
+  }
+
+  // Check if any allocations are targeting this account
+  const hasAllocations = state.rows.some(row =>
+    row.type === 'allocation' && row.targetAccount === accountId
+  );
+
+  if (hasAllocations) {
+    const confirmed = confirm(
+      '⚠️ Delete Account?\n\n' +
+      'This account has active allocations pointing to it.\n' +
+      'Deleting it will also remove those allocations.\n\n' +
+      'Continue?'
+    );
+
+    if (!confirmed) {
+      return { success: false, error: 'User cancelled' };
+    }
+
+    // Remove allocations targeting this account
+    state.rows = state.rows.filter(row =>
+      !(row.type === 'allocation' && row.targetAccount === accountId)
+    );
+  }
+
+  state.accounts.splice(index, 1);
+  return { success: true };
 }
 
 export function calculateAccountContributions() {
