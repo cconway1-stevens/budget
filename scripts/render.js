@@ -1,5 +1,5 @@
-import { state, calcMonthlyValues, generateId, normalizeRows, calculateNetWorth, calculateAccountContributions, createAccount, getAccountById, projectAccountValue, calculateTimeToTarget, calculatePassiveIncome } from './state.js';
-import { save } from './storage.js';
+import { state, calcMonthlyValues, generateId, normalizeRows, calculateNetWorth, calculateAccountContributions, createAccount, getAccountById, projectAccountValue, calculateTimeToTarget, calculatePassiveIncome, updateAccount, deleteAccount } from './state.js';
+import { save, importData } from './storage.js';
 import { fmt, fmtDecimal, fmtPct, fromMonthly, parseValue } from './formatting.js';
 import { updateCharts } from './charts.js';
 
@@ -193,6 +193,13 @@ function renderDashboardFilterChips(filters = ensureDashboardFilters()) {
       return `<button class="${classList.join(' ')}" data-filter-type="type" data-value="${option.value}" aria-pressed="${isActive}">${option.label}</button>`;
     }).join('');
   }
+
+  // Show/hide clear filters button
+  const clearBtn = document.getElementById('clearDashboardFilters');
+  if (clearBtn) {
+    const hasFilters = filters.category !== 'all' || filters.type !== 'all';
+    clearBtn.style.display = hasFilters ? 'inline-flex' : 'none';
+  }
 }
 
 function getSortedRows() {
@@ -306,22 +313,22 @@ export function renderTable() {
             <option value="yearly" ${r.freq === 'yearly' ? 'selected' : ''}>Yearly</option>
           </select>
         </td>
-        <td>
+        <td class="hide-mobile">
           <select class="w-full cell-change" data-field="category" style="padding: 8px 12px;">
             <option value="">None</option>
             ${state.categories.map(cat => `<option value="${cat}" ${r.category === cat ? 'selected' : ''}>${cat}</option>`).join('')}
           </select>
         </td>
-        <td class="text-right freq-value">
+        <td class="text-right freq-value hide-mobile">
           ${fmt.format(Math.abs(daily))}
         </td>
-        <td class="text-right freq-value">
+        <td class="text-right freq-value hide-mobile">
           ${fmt.format(Math.abs(weekly))}
         </td>
-        <td class="text-right freq-value highlight">
+        <td class="text-right freq-value highlight hide-tablet">
           ${fmt.format(Math.abs(monthly))}
         </td>
-        <td class="text-right freq-value">
+        <td class="text-right freq-value hide-mobile">
           ${fmt.format(Math.abs(yearly))}
         </td>
         <td class="text-center">
@@ -353,13 +360,14 @@ export function renderTable() {
           <option value="yearly">Yearly</option>
         </select>
       </td>
-      <td>
+      <td class="hide-mobile">
         <select id="quickCategory" style="padding: 8px 12px;">
           <option value="">None</option>
           ${state.categories.map(cat => `<option value="${cat}">${cat}</option>`).join('')}
         </select>
       </td>
-      <td colspan="4">
+      <td colspan="4" class="hide-mobile"></td>
+      <td colspan="1">
         <button id="quickAddBtn" class="btn btn-primary w-full">
           <i data-lucide="plus" class="w-4 h-4"></i>
           Add Entry
@@ -1464,16 +1472,17 @@ function setupImportExport() {
       if (!file) return;
       try {
         const text = await file.text();
-        const data = JSON.parse(text);
-        if (!data || !Array.isArray(data.rows)) throw new Error('Invalid file');
-        state.rows = normalizeRows(data.rows);
-        save();
-        renderTable();
-        refreshDashboard();
-        alert('✅ Data imported successfully!');
+        const result = importData(text);
+
+        if (result.success) {
+          renderTable();
+          refreshDashboard();
+          alert('✅ Data imported successfully!');
+        }
+        // Error handling is done in importData function
       } catch (err) {
         console.error(err);
-        alert('❌ Import failed. Invalid file.');
+        alert('❌ Import failed. Unable to read file.');
       } finally {
         if (target) {
           target.value = '';
@@ -1515,6 +1524,18 @@ function setupViewSwitcher() {
   if (filterRow && !filterRow.dataset.listenerAttached) {
     filterRow.dataset.listenerAttached = 'true';
     filterRow.addEventListener('click', e => {
+      // Check for clear filters button
+      const clearBtn = e.target.closest('#clearDashboardFilters');
+      if (clearBtn) {
+        const filters = ensureDashboardFilters();
+        filters.category = 'all';
+        filters.type = 'all';
+        save();
+        refreshDashboard();
+        return;
+      }
+
+      // Handle filter chip clicks
       const btn = e.target.closest('button[data-filter-type]');
       if (!btn) return;
       const filters = ensureDashboardFilters();
@@ -1615,8 +1636,8 @@ function renderAccounts() {
 
       return `
         <div class="p-4 rounded-lg bg-slate-800/50 border border-slate-700 hover:border-slate-600 transition-colors">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-3">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-3 flex-1">
               <div class="w-10 h-10 rounded-lg bg-slate-700/50 flex items-center justify-center">
                 <i data-lucide="${icon}" class="w-5 h-5 ${color}"></i>
               </div>
@@ -1635,10 +1656,20 @@ function renderAccounts() {
               ` : ''}
               ${hasReturn ? `
                 <div class="text-xs text-slate-400">
-                  ${account.expectedReturn}% return
+                  ${(account.expectedReturn * 100).toFixed(1)}% return
                 </div>
               ` : ''}
             </div>
+          </div>
+          <div class="flex gap-2 pt-2 border-t border-slate-700/50">
+            <button class="btn-compact text-blue-400 hover:bg-blue-500/10 flex-1" data-action="edit-account" data-id="${account.id}">
+              <i data-lucide="edit-2" class="w-3 h-3"></i>
+              Edit
+            </button>
+            <button class="btn-compact text-red-400 hover:bg-red-500/10" data-action="delete-account" data-id="${account.id}">
+              <i data-lucide="trash-2" class="w-3 h-3"></i>
+              Delete
+            </button>
           </div>
         </div>
       `;
@@ -1804,6 +1835,7 @@ function setupAccountModal() {
   const closeAccountModal = document.getElementById('closeAccountModal');
   const cancelAccountBtn = document.getElementById('cancelAccountBtn');
   const saveAccountBtn = document.getElementById('saveAccountBtn');
+  const modalTitle = accountModal ? accountModal.querySelector('h2') : null;
 
   const accountNameInput = document.getElementById('accountName');
   const accountTypeInput = document.getElementById('accountType');
@@ -1812,16 +1844,35 @@ function setupAccountModal() {
 
   if (!btnAddAccount || !accountModal) return;
 
-  const openModal = () => {
+  let editingAccountId = null;
+
+  const openModal = (accountId = null) => {
+    editingAccountId = accountId;
     accountModal.classList.add('modal-active');
-    if (accountNameInput) accountNameInput.value = '';
-    if (accountTypeInput) accountTypeInput.value = 'retirement';
-    if (accountBalanceInput) accountBalanceInput.value = '';
-    if (accountReturnInput) accountReturnInput.value = '7';
+
+    if (accountId) {
+      // Edit mode
+      const account = getAccountById(accountId);
+      if (!account) return;
+
+      if (modalTitle) modalTitle.textContent = 'Edit Account';
+      if (accountNameInput) accountNameInput.value = account.name;
+      if (accountTypeInput) accountTypeInput.value = account.type;
+      if (accountBalanceInput) accountBalanceInput.value = account.balance;
+      if (accountReturnInput) accountReturnInput.value = (account.expectedReturn * 100).toFixed(1);
+    } else {
+      // Create mode
+      if (modalTitle) modalTitle.textContent = 'Add New Account';
+      if (accountNameInput) accountNameInput.value = '';
+      if (accountTypeInput) accountTypeInput.value = 'retirement';
+      if (accountBalanceInput) accountBalanceInput.value = '';
+      if (accountReturnInput) accountReturnInput.value = '7';
+    }
   };
 
   const closeModal = () => {
     accountModal.classList.remove('modal-active');
+    editingAccountId = null;
   };
 
   const saveAccount = () => {
@@ -1831,17 +1882,35 @@ function setupAccountModal() {
     const returnRate = accountReturnInput ? parseFloat(accountReturnInput.value) || 0 : 0;
 
     if (!name) {
-      alert('Please enter an account name');
+      alert('⚠️ Please enter an account name');
       return;
     }
 
-    createAccount(name, type, balance, returnRate / 100);
+    if (editingAccountId) {
+      // Update existing account
+      const result = updateAccount(editingAccountId, {
+        name,
+        type,
+        balance,
+        expectedReturn: returnRate / 100
+      });
+
+      if (!result.success) {
+        alert(`⚠️ Update Failed!\n\n${result.error}`);
+        return;
+      }
+    } else {
+      // Create new account
+      createAccount(name, type, balance, returnRate / 100);
+    }
+
     save();
     renderAccounts();
+    refreshDashboard();
     closeModal();
   };
 
-  btnAddAccount.addEventListener('click', openModal);
+  btnAddAccount.addEventListener('click', () => openModal());
   if (closeAccountModal) closeAccountModal.addEventListener('click', closeModal);
   if (cancelAccountBtn) cancelAccountBtn.addEventListener('click', closeModal);
   if (saveAccountBtn) saveAccountBtn.addEventListener('click', saveAccount);
@@ -1852,4 +1921,44 @@ function setupAccountModal() {
       closeModal();
     }
   });
+
+  // Setup event delegation for account actions
+  const accountsList = document.getElementById('accountsList');
+  if (accountsList) {
+    accountsList.addEventListener('click', (e) => {
+      const editBtn = e.target.closest('[data-action="edit-account"]');
+      const deleteBtn = e.target.closest('[data-action="delete-account"]');
+
+      if (editBtn) {
+        const accountId = editBtn.dataset.id;
+        if (accountId) {
+          openModal(accountId);
+        }
+      } else if (deleteBtn) {
+        const accountId = deleteBtn.dataset.id;
+        if (accountId) {
+          const account = getAccountById(accountId);
+          if (!account) return;
+
+          const confirmed = confirm(
+            `⚠️ Delete Account?\n\n` +
+            `Are you sure you want to delete "${account.name}"?\n` +
+            `This action cannot be undone.`
+          );
+
+          if (confirmed) {
+            const result = deleteAccount(accountId);
+            if (result.success) {
+              save();
+              renderAccounts();
+              renderTable();
+              refreshDashboard();
+            } else if (result.error !== 'User cancelled') {
+              alert(`⚠️ Delete Failed!\n\n${result.error}`);
+            }
+          }
+        }
+      }
+    });
+  }
 }
