@@ -101,30 +101,43 @@
     <!-- ===== DASHBOARD PAGE ===== -->
     <section id="pageDashboard" class="space-y-6">
       <!-- Period Selector -->
-      <div class="glass-card p-5 flex flex-wrap items-center justify-between gap-4 fade-in" style="animation-delay: 0.1s">
-        <div id="viewSwitcher" class="flex gap-2">
-          <button data-view="daily" class="pill pill-soft">
-            <i data-lucide="calendar" class="w-4 h-4"></i>
-            Daily
-          </button>
-          <button data-view="weekly" class="pill pill-soft">
-            <i data-lucide="calendar-range" class="w-4 h-4"></i>
-            Weekly
-          </button>
-          <button data-view="monthly" class="pill pill-active">
-            <i data-lucide="calendar-check" class="w-4 h-4"></i>
-            Monthly
-          </button>
-          <button data-view="yearly" class="pill pill-soft">
-            <i data-lucide="calendar-clock" class="w-4 h-4"></i>
-            Yearly
-          </button>
+      <div class="glass-card p-5 fade-in space-y-4" style="animation-delay: 0.1s">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div id="viewSwitcher" class="flex gap-2">
+            <button data-view="daily" class="pill pill-soft">
+              <i data-lucide="calendar" class="w-4 h-4"></i>
+              Daily
+            </button>
+            <button data-view="weekly" class="pill pill-soft">
+              <i data-lucide="calendar-range" class="w-4 h-4"></i>
+              Weekly
+            </button>
+            <button data-view="monthly" class="pill pill-active">
+              <i data-lucide="calendar-check" class="w-4 h-4"></i>
+              Monthly
+            </button>
+            <button data-view="yearly" class="pill pill-soft">
+              <i data-lucide="calendar-clock" class="w-4 h-4"></i>
+              Yearly
+            </button>
+          </div>
+          <div class="flex items-center gap-3 text-sm">
+            <i data-lucide="eye" class="w-4 h-4 text-slate-400"></i>
+            <span class="text-slate-400">Viewing:</span>
+            <span id="viewLabel" class="font-bold text-blue-400">Monthly</span>
+            <span class="text-slate-600">Period</span>
+          </div>
         </div>
-        <div class="flex items-center gap-3 text-sm">
-          <i data-lucide="eye" class="w-4 h-4 text-slate-400"></i>
-          <span class="text-slate-400">Viewing:</span>
-          <span id="viewLabel" class="font-bold text-blue-400">Monthly</span>
-          <span class="text-slate-600">Period</span>
+        <div id="dashboardFilterRow" class="flex flex-wrap items-center gap-3 text-sm">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Category</span>
+            <div id="dashboardFilterCategories" class="flex flex-wrap gap-2"></div>
+          </div>
+          <div class="w-px h-8 bg-slate-700"></div>
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Type</span>
+            <div id="dashboardFilterTypes" class="flex flex-wrap gap-2"></div>
+          </div>
         </div>
       </div>
 
