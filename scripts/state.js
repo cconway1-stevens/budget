@@ -5,6 +5,7 @@ export const state = {
   view: 'monthly',
   lastMonthData: { income: 0, expenses: 0, net: 0 },
   history: [],
+  filterCategory: '',
   netGoal: 0,
   categories: [
     'Salary',
